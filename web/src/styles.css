@@ -747,3 +747,17 @@ fieldset.field legend { font-size: 13px; font-weight: 600; color: var(--ink-2); 
 .key-list .key-field + .key-field { border-top: 1px solid var(--line); }
 .key-field { padding: 10px 0; }
 .key-field:first-of-type { padding-top: 0; }
+
+/* Sheet header: title and a close button */
+.sheet-head { display: flex; align-items: flex-start; gap: 12px; }
+.sheet-head > h2 { flex: 1; min-width: 0; margin-top: 0; }
+.sheet-close { flex: none; width: 36px; height: 36px; margin: -4px -6px 0 0; border-radius: 50%; border: 0; background: var(--surface-2); color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
+.sheet-close:hover { color: var(--ink); }
+.sheet-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Team: this week's line under each direct report */
+.team-week-line { color: var(--ink-2) !important; }
+.team-week-line.needs { color: var(--warn) !important; }
+.person-item.read-good .avatar { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+.person-item.read-okay .avatar { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink-3); }
+.person-item.read-carrying .avatar { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--heartwood); }

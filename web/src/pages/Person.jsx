@@ -143,7 +143,7 @@ export default function Person() {
         <Link to={`/career?recognize=${p.id}#drafts`} className="btn small nowrap" title={`Draft a LinkedIn kudos post for ${p.name.split(' ')[0]}`}><Icon name="star" size={16} /> Kudos</Link>
       </div>
 
-      <ContextBar subject={{ kind: 'person', id: p.id, label: p.name }} recipients={[p]} />
+      <ContextBar subject={{ kind: 'person', id: p.id, label: p.name }} recipients={[p]} showAsk={false} />
 
       <section className="card mt" style={{ padding: '10px 16px' }}>
         <div className="analysis-head"><Icon name="repeat" /><h2 style={{ fontSize: 18 }}>Recurring</h2></div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Icon from '../components/Icon.jsx';
 import Sheet from '../components/Sheet.jsx';
@@ -83,6 +83,13 @@ export function PersonForm({ initial = {}, onSubmit, onCancel, submitLabel = 'Sa
 export default function People() {
   const { people, refreshPeople } = useApp();
   const [adding, setAdding] = useState(false);
+  // This week, for your direct reports: seen / next / how they seemed / might need you.
+  const [week, setWeek] = useState({});
+  useEffect(() => { api.get('/team/week').then(t => setWeek(Object.fromEntries((t.people || []).map(x => [x.id, x])))).catch(() => {}); }, [people.length]);
+  const READ = { good: 'Good', okay: 'Okay', carrying: 'Carrying something' };
+  const dayName = iso => new Date(iso).toLocaleDateString([], { weekday: 'long' });
+  const weekLine = w => w && (w.covered ? `Seen this week${w.read ? ` · seemed ${READ[w.read].toLowerCase()}` : ''}`
+    : w.next_this_week ? `Next: ${dayName(w.next_at)}` : w.next_at ? 'Next week' : w.on_rhythm ? 'On rhythm' : 'Not seen in a while');
   const nav = useNavigate();
 
   const PLURAL = { direct_report: 'Direct reports', peer: 'Peers', manager: 'Managers', stakeholder: 'Stakeholders', other: 'Others' };
@@ -116,10 +123,14 @@ export default function People() {
         <section key={g.k}>
           <div className="day-label">{g.label}</div>
           {g.items.map(p => (
-            <Link key={p.id} to={`/people/${p.id}`} className="person-item">
-              <Avatar person={p} />
+            <Link key={p.id} to={`/people/${p.id}`} className={`person-item${week[p.id]?.read ? ` read-${week[p.id].read}` : ''}`}>
+              <span className="coverage-avatar">
+                <Avatar person={p} />
+                {week[p.id]?.needs?.length > 0 && <span className="coverage-needs" aria-hidden="true" />}
+              </span>
               <span className="grow">
                 <div className="name">{p.name}</div>
+                {week[p.id] && <div className={`sub team-week-line${week[p.id].needs?.length ? ' needs' : ''}`}>{weekLine(week[p.id])}{week[p.id].needs?.length ? ` · ${(week[p.id].headline || '').replace(p.name.split(' ')[0] + ' ', '')}` : ''}</div>}
                 {(p.role || whereLine(p)) && <div className="sub">{[p.role, whereLine(p)].filter(Boolean).join(' · ')}</div>}
                 <div className="sub">{[p.entry_count ? `${p.entry_count} entr${p.entry_count === 1 ? 'y' : 'ies'}` : 'No entries yet', p.last_entry_at && `last ${formatDate(p.last_entry_at).toLowerCase()}`].filter(Boolean).join(' · ')}</div>
               </span>

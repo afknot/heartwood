@@ -147,7 +147,7 @@ export function ContextThread({ subject, refreshKey }) {
 }
 
 /** "Ask about this" and "Write a message" for a person, note or meeting, plus its chats and context. */
-export default function ContextBar({ subject, recipients = [], showThread = true, compact = false }) {
+export default function ContextBar({ subject, recipients = [], showThread = true, compact = false, showAsk = true }) {
   const [ask, setAsk] = useState(null); // null | { chatId }
   const [write, setWrite] = useState(false);
   const [chats, setChats] = useState([]);
@@ -159,7 +159,7 @@ export default function ContextBar({ subject, recipients = [], showThread = true
   return (
     <section className={`card ctx-bar${compact ? ' compact' : ''}`} aria-label={`Ask about or write to ${subject.label}`}>
       <div className="ctx-actions">
-        <button type="button" className="ctx-btn" onClick={() => setAsk({ chatId: null })}><Icon name="ask" size={18} /> Ask about this</button>
+        {showAsk && <button type="button" className="ctx-btn" onClick={() => setAsk({ chatId: null })}><Icon name="ask" size={18} /> Ask about this</button>}
         {canWrite && <button type="button" className="ctx-btn" onClick={() => setWrite(true)}><Icon name="send" size={18} /> Write a message</button>}
       </div>
       {chats.length > 0 && (

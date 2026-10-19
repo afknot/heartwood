@@ -90,6 +90,7 @@ export function TeamThisWeek({ coverage, onChanged, embedded = true }) {
   useEffect(() => { setAsked([]); }, [coverage?.today]);
   if (!team.length) return null;
   const onRhythm = team.filter(p => p.on_rhythm).length;
+  const seenCount = team.filter(p => p.covered).length;
   const needing = team.filter(p => p.needs?.length);
   const ask = (coverage.ask || []).filter(a => !asked.includes(a.id));
   // Not seen yet: when you'll see them (from your 1:1s and calendar), else whether they're on rhythm.
@@ -101,8 +102,8 @@ export function TeamThisWeek({ coverage, onChanged, embedded = true }) {
   return (
     <div className="coverage" style={embedded ? undefined : { borderTop: 0, marginTop: 0, paddingTop: 0 }}>
       <div className="row" style={{ gap: 8, marginBottom: 8 }}>
-        <span className="eyebrow grow">{onRhythm === team.length ? 'Your team, all on rhythm' : 'Your team this week'}</span>
-        <span className="small muted">{onRhythm} of {team.length} on rhythm</span>
+        <span className="eyebrow grow">Your team this week</span>
+        <span className="small muted">{seenCount ? `${seenCount} of ${team.length} seen` : onRhythm === team.length ? 'Everyone on rhythm' : `${team.length - onRhythm} overdue`}</span>
       </div>
       {ask[0] && (
         <HowDidTheySeem key={ask[0].id} person={ask[0]} context={`${ask[0].event_title || '1:1'} · today`}

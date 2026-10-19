@@ -106,6 +106,7 @@ today.post('/team/:id/read', (req, res) => {
   catch (err) { res.status(err.status || 400).json({ error: err.message }); }
 });
 today.delete('/team/:id/read', (req, res) => res.json(clearTodayRead(req.params.id)));
+today.get('/team/week', (req, res) => res.json(teamWeek({ agendaFn: agenda })));
 today.get('/team/:id/reads', (req, res) => res.json(readsFor(req.params.id)));
 today.post('/team/:id/dismiss', (req, res) => { dismissNeeds(req.params.id); res.json({ ok: true }); });
 

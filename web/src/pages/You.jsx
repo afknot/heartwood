@@ -4,6 +4,14 @@ import { api } from '../api.js';
 import Icon from '../components/Icon.jsx';
 import { formatDate } from '../lib/format.js';
 
+// "2026-10-09 → 2026-10-16: Weekly debrief: …" -> "Week of Oct 9"
+function debriefLabel(r) {
+  const d = String(r.title || '').match(/(\d{4}-\d{2}-\d{2})/);
+  if (!d) return String(r.title || '').replace(/:.*$/, '');
+  const date = new Date(`${d[1]}T12:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return /month/i.test(r.title) ? `Month from ${date}` : `Week of ${date}`;
+}
+
 /** You: everything about you and how you lead, with Settings at the bottom. */
 export default function You() {
   const [s, setS] = useState(null);
@@ -43,7 +51,7 @@ export default function You() {
         exDone < exTotal ? <span className="you-progress" aria-hidden="true"><span style={{ width: `${Math.round((exDone / exTotal) * 100)}%` }} /></span> : null)}
 
       <h2 className="section-title">Looking back</h2>
-      {row('/insights', 'insights', 'Debriefs', debriefs[0] ? `Latest: ${debriefs[0].title}` : 'Weekly and monthly: themes, blind spots, how you’re trending')}
+      {row('/insights', 'insights', 'Debriefs', debriefs[0] ? `Latest: ${debriefLabel(debriefs[0])}` : 'Weekly and monthly: themes, blind spots, how you’re trending')}
       {row('/career', 'career', 'Career record', 'Your initiatives, outcomes and leadership, ready for reviews and your portfolio')}
 
       <h2 className="section-title">Conversations</h2>

@@ -61,9 +61,13 @@ export default function Sheet({ open, onClose, title, children }) {
     <div className="sheet-backdrop" onClick={onClose}>
       <div ref={ref} className="sheet" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} onClick={e => e.stopPropagation()}>
         <div className="sheet-grip" />
-        {title && <h2>{title}</h2>}
+        <div className="sheet-head">
+          {title ? <h2>{title}</h2> : <span />}
+          <button type="button" className="sheet-close" onClick={onClose} aria-label="Close">
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+          </button>
+        </div>
         {children}
-        <button type="button" className="sr-only" onClick={onClose}>Close</button>
       </div>
     </div>,
     document.body
