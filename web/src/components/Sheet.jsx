@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 // Page scroll lock shared by every open sheet. Counted, so a sheet opened on top of another
 // (e.g. the people picker over a meeting) can't leave the page frozen when they close in any order.
@@ -54,7 +55,9 @@ export default function Sheet({ open, onClose, title, children }) {
     };
   }, [open]);
   if (!open) return null;
-  return (
+  // Rendered at the top of the page: a sheet opened from inside the tab bar or a card (anything with
+  // a blur or transform) would otherwise be trapped inside it.
+  return createPortal(
     <div className="sheet-backdrop" onClick={onClose}>
       <div ref={ref} className="sheet" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} onClick={e => e.stopPropagation()}>
         <div className="sheet-grip" />
@@ -62,6 +65,7 @@ export default function Sheet({ open, onClose, title, children }) {
         {children}
         <button type="button" className="sr-only" onClick={onClose}>Close</button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

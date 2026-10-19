@@ -41,6 +41,24 @@ export default function App() {
     return () => window.removeEventListener('heartwood:logged-out', out);
   }, []);
 
+  // After Heartwood updates, reload into the new version the next time you come back to it,
+  // unless you're recording or writing (those screens pick it up when you leave them).
+  useEffect(() => {
+    if (!authed) return;
+    let seen = null;
+    const check = async () => {
+      if (document.visibilityState !== 'visible') return;
+      const v = await api.get('/health').then(r => r.version?.commit).catch(() => null);
+      if (!v) return;
+      if (seen && v !== seen && !/^\/(record|entry)/.test(window.location.pathname) && !document.querySelector('.sheet')) window.location.reload();
+      seen = seen || v;
+    };
+    check();
+    document.addEventListener('visibilitychange', check);
+    const t = setInterval(check, 5 * 60e3);
+    return () => { document.removeEventListener('visibilitychange', check); clearInterval(t); };
+  }, [authed]);
+
   useEffect(() => {
     if (!authed) return;
     refreshPeople();

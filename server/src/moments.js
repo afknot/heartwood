@@ -14,7 +14,7 @@ const ago = iso => {
   const d = Math.round((Date.now() - Date.parse(iso)) / DAY);
   return d < 14 ? `${d} days ago` : d < 60 ? `${Math.round(d / 7)} weeks ago` : `${Math.round(d / 30)} months ago`;
 };
-const short = (s, n = 160) => { const t = String(s || '').replace(/\s+/g, ' ').trim(); return t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t; };
+const short = (s, n = 160) => { const t = String(s || '').replace(/\s+/g, ' ').trim(); return t.length > n ? `${t.slice(0, n - 1).replace(/[\s,;:.-]+\S*$/, '')}…` : t; };
 
 function lookbacks() {
   const from = new Date(Date.now() - 75 * DAY).toISOString(), to = new Date(Date.now() - 25 * DAY).toISOString();

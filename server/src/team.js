@@ -122,7 +122,8 @@ function needs(p, ctx) {
     const since = new Date(Date.now() - 30 * DAY).toISOString().slice(0, 10);
     const win = (latestGrowth(p.id)?.timeline || []).filter(t => (t.type === 'win' || t.type === 'milestone') && t.date && t.date >= since).at(-1);
     if (win && !db.prepare(`SELECT 1 FROM career_drafts WHERE kind = 'recognition' AND title LIKE ? AND created_at >= ?`).get(`%${p.name}%`, `${win.date}T00:00:00Z`)) {
-      reasons.push(`${first}: ${win.text.length > 90 ? `${win.text.slice(0, 87)}…` : win.text}. No kudos yet.`);
+      const t = String(win.text).trim().replace(/[\s.…!]+$/, '');
+      reasons.push(`${first}: ${t.length > 90 ? `${t.slice(0, 88).replace(/[\s,;:.-]+\S*$/, '')}…` : `${t}.`} No kudos yet.`);
       steps.push({ label: `Give ${first} kudos`, kind: 'kudos' });
     }
   } catch { /* no growth record */ }
