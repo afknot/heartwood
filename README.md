@@ -38,7 +38,10 @@ Record your 1:1s and voice memos, or just write. Heartwood turns them into notes
 - **Something to try**: one small way to show up each day, from 66 practices like inviting "I intend to…", hearing each side of a tension separately, or asking "And what else?". It's picked to fit your day (a listening practice when you have 1:1s, a pause when you're back-to-back) and your leadership style. The top of Today shows one thing at a time, chosen for the moment: the practice while it can still help today, otherwise a good moment from your own journal (a note you've since worked through, praise you received, a win on your team worth recognizing) or a short quote. "Something else" shows the others.
 - **Your leadership style**: in Settings → About you, choose up to three kinds of leader you want to be: servant leader, gives space, bridge-builder, coach, empathetic, candid and caring, or sets direction. Coaching, prep, debriefs, 1:1 agendas and the daily practice all lean toward them.
 - **Debriefs** each week or month: themes, blind spots and how your leadership is trending.
-- **Ask** your journal anything ("What have I promised my team and not done?"). Type @ to point it at a person, note or meeting, attach files, or ask by voice. Answers link back to the notes they used.
+- **Ask about this**, right where you are: every person, note and meeting has an Ask bar already scoped to it, and the chats stay with it. The Ask button at the top of each screen asks your whole journal. Answers link back to the notes they used.
+- **Write a message** to someone from their page, a note or a meeting: draft from rough notes or your voice, improve your own draft (with what changed and why), or reply to theirs. You get two versions in your voice, checked for private details that shouldn't go out. Heartwood never sends anything: copy it or open it in Mail.
+- **Your voice**: seven short writing exercises across situations and audiences (praise, hard feedback, saying no to a peer, bad news to your manager, and more), plus messages you've sent. Heartwood describes how you write and how you shift by audience, and gets closer every time you edit a draft before using it.
+- **Context, not clutter**: updates and clarifications live with the person, note or meeting they're about, not in your journal. Ask, prep and drafted messages use them.
 
 **Your team**
 - **Your week**: five rings for the work week. Monday is the heartwood dot at the center and Tuesday to Friday are the rings around it, so the week's shape is there from Monday morning and fills in as you go. Conversations, notes, reflections, closed follow-ups, kudos and practices make a day's mark thicker; a quiet day is a fine line, never a gap. Past weeks are a tap away, each as its own five rings. Below it, **your team this week**: each direct report's face fills in once you've talked, with how they seemed to you (Good, Okay or Carrying something, one tap after a conversation, private to you). People you meet every two weeks aren't shown as missed in their off week. Anyone who might need you gets a small dot and a reason from your own notes (you've marked them Carrying something twice, you owe them something overdue, it's been longer than usual, or they had a win you haven't recognized), with a next step. Each person's page shows how they've seemed over the last 8 weeks.
@@ -52,6 +55,8 @@ Record your 1:1s and voice memos, or just write. Heartwood turns them into notes
 
 **Around it**
 - **Phone notifications**: a morning summary, a heads-up before conversations, a "How did it go?" nudge afterwards, and the weekly debrief.
+- One voice input everywhere, in the same style as recording: Ask, messages, updates, context and exercises.
+- Five tabs: **Today**, **Journal**, **Record**, **Team** and **You** (your leadership style, voice, debriefs, career record, chats and Settings).
 - Install it to your phone's home screen. Sign in with Face ID, Touch ID or a passkey.
 - Choose **Claude, OpenAI or Gemini** for reflection, and change your mind any time.
 - **Nightly encrypted backups** to Google Drive, set up and checked in Settings.
@@ -115,7 +120,7 @@ From then on your server checks for updates every few minutes and installs them,
 
 ### 4. Finish in Settings
 
-Open your web address, sign in, and go to **Reflect → ⚙ Settings**:
+Open your web address, sign in, and go to **You → ⚙ Settings**:
 
 1. **AI & transcription → API keys**: paste a key and tap **Test**.
 2. **About you**: your role, team and goals. This is what makes the coaching specific to you.
