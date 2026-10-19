@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import Icon from '../components/Icon.jsx';
-import { AskButton } from '../components/AskButton.jsx';
 import { formatDate } from '../lib/format.js';
 
 /** You: everything about you and how you lead, with Settings at the bottom. */
@@ -34,7 +33,6 @@ export default function You() {
     <main className="page">
       <div className="topbar">
         <h1>You</h1>
-        <AskButton />
         <Link to="/settings" state={{ from: '/you' }} className="icon-btn" aria-label="Settings" title="Settings"><Icon name="settings" /></Link>
       </div>
       {s?.profile?.name && <p className="muted" style={{ marginTop: -6 }}>{s.profile.name}{s.profile.role ? ` · ${s.profile.role}` : ''}</p>}

@@ -23,6 +23,7 @@ import Career from './pages/Career.jsx';
 import CareerDraft from './pages/CareerDraft.jsx';
 import You from './pages/You.jsx';
 import Voice from './pages/Voice.jsx';
+import { AskSheet } from './components/ContextBar.jsx';
 
 export default function App() {
   const [authed, setAuthed] = useState(null);
@@ -53,10 +54,12 @@ export default function App() {
   if (!authed) return <Login onDone={() => setAuthed(true)} />;
 
   const hideTabs = /^\/(entry|record|import|add)/.test(loc.pathname);
+  // Ask is docked to the tab bar everywhere except Ask itself (which has its own box).
+  const dock = !hideTabs && !/^\/ask(\/|$)/.test(loc.pathname);
 
   return (
     <AppCtx.Provider value={{ people, refreshPeople, notify }}>
-      <div className="app">
+      <div className={`app${dock ? ' has-dock' : ''}`}>
         <Routes>
           <Route path="/" element={<Today />} />
           <Route path="/journal" element={<Journal />} />
@@ -79,15 +82,20 @@ export default function App() {
           <Route path="/import/:id" element={<Import />} />
           <Route path="*" element={<div className="page"><p>Not found. <Link to="/">Back to Today</Link></p></div>} />
         </Routes>
-        {!hideTabs && <TabBar />}
+        {!hideTabs && <TabBar dock={dock} people={people} />}
         {toast && <div className="toast" role="status">{toast}</div>}
       </div>
     </AppCtx.Provider>
   );
 }
 
-function TabBar() {
+function TabBar({ dock, people }) {
   const loc = useLocation();
+  const [ask, setAsk] = useState(null); // null | { listen }
+  // On someone's page, the dock asks about them.
+  const pid = loc.pathname.match(/^\/people\/([^/]+)$/)?.[1];
+  const person = pid && people.find(p => p.id === pid);
+  const subject = person ? { kind: 'person', id: person.id, label: person.name } : null;
   const tab = (to, icon, label, end, active) => (
     <NavLink to={to} end={end} className={({ isActive }) => `tab${isActive || active ? ' active' : ''}`} aria-current={active ? 'page' : undefined}>
       <Icon name={icon} /> <span>{label}</span>
@@ -95,6 +103,17 @@ function TabBar() {
   );
   return (
     <nav className="tabbar" aria-label="Main">
+      {dock && (
+        <div className="ask-dock">
+          <div className="ask-dock-btn" role="group" aria-label="Ask">
+            <button type="button" className="grow" style={{ all: 'unset', flex: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, minHeight: 42, overflow: 'hidden' }} onClick={() => setAsk({ listen: false })}>
+              <Icon name="ask" size={18} /> <span className="grow">{subject ? `Ask about ${subject.label.split(' ')[0]}…` : 'Ask anything…'}</span>
+            </button>
+            <button type="button" className="ask-dock-mic" onClick={() => setAsk({ listen: true })} aria-label="Ask by voice"><Icon name="mic" size={17} /></button>
+          </div>
+          <AskSheet open={!!ask} onClose={() => setAsk(null)} subject={subject} listen={!!ask?.listen} />
+        </div>
+      )}
       <div className="tabbar-inner">
         {tab('/', 'today', 'Today', true)}
         {tab('/journal', 'journal', 'Journal')}

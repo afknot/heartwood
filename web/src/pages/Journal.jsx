@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { AskButton } from '../components/AskButton.jsx';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import Icon from '../components/Icon.jsx';
@@ -89,7 +88,6 @@ export default function Journal() {
     <main className="page">
       <div className="topbar">
         <h1>Journal</h1>
-        <AskButton />
         <button className="icon-btn" onClick={() => setAdding(true)} aria-label="Add"><Icon name="plus" /></button>
       </div>
 

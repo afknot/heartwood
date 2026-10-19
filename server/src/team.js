@@ -163,6 +163,14 @@ export function teamWeek({ agendaFn }) {
     }
   } catch { /* calendar unavailable: notes still count */ }
 
+  // When you'll next see each person (the next conversation in the coming two weeks).
+  const nextAt = new Map();
+  try {
+    for (const ev of agendaFn({ days: 14 })) {
+      if (ev.status === 'skipped' || Date.parse(ev.start) <= Date.now()) continue;
+      for (const p of ev.people) if (!nextAt.has(p.id) || ev.start < nextAt.get(p.id)) nextAt.set(p.id, ev.start);
+    }
+  } catch { /* calendar unavailable */ }
   const open = listFollowups({ status: 'open', limit: 3000 });
   const latestRead = db.prepare('SELECT read, at FROM person_reads WHERE person_id = ? ORDER BY at DESC LIMIT 1');
   const list = reports.map(p => {
@@ -172,7 +180,8 @@ export function teamWeek({ agendaFn }) {
     // On rhythm: seen this week, or within their usual gap (someone you meet every 2 weeks isn't missed in the off week).
     const onRhythm = !!s || (weeks > 1 && lastAt && Date.now() - Date.parse(lastAt) < weeks * 7 * DAY);
     const person = { id: p.id, name: p.name, photo: p.photo, pronouns: p.pronouns, rhythm: weeks, covered: !!s, on_rhythm: onRhythm, at: s?.at || null, how: s?.how || null, last_seen: lastAt,
-      read: r && Date.now() - Date.parse(r.at) < 21 * DAY ? r.read : null, read_at: r?.at || null };
+      read: r && Date.now() - Date.parse(r.at) < 21 * DAY ? r.read : null, read_at: r?.at || null,
+      next_at: nextAt.get(p.id) || null, next_this_week: !!nextAt.get(p.id) && weekOf(new Date(nextAt.get(p.id))) === monday };
     const n = dismissedThisWeek(p.id) ? { reasons: [], steps: [], headline: '' } : needs({ ...p, ...person }, { open });
     return { ...person, needs: n.reasons, steps: n.steps, headline: n.headline };
   });

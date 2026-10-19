@@ -24,7 +24,7 @@ function mentionAt(text, caret) {
   return m ? { query: m[1], start: caret - m[1].length - 1 } : null;
 }
 
-export default function AskComposer({ busy, placeholder, onSend }) {
+export default function AskComposer({ busy, placeholder, onSend, autoListen = false }) {
   const { notify } = useApp();
   const [text, setText] = useState('');
   const [refs, setRefs] = useState([]); // { type, id, label }
@@ -37,6 +37,7 @@ export default function AskComposer({ busy, placeholder, onSend }) {
   // Voice: the same listening panel as everywhere else in Heartwood.
   const d = useDictation({ onText: t => { setText(x => (x.trim() ? `${x.trimEnd()} ${t}` : t)); requestAnimationFrame(() => ta.current?.focus()); } });
   const rec = d.state === 'recording', transcribing = d.state === 'transcribing';
+  useEffect(() => { if (autoListen) d.start(); }, []); // opened with the mic: start listening right away
   const ta = useRef();
   const fileInput = useRef();
   const camInput = useRef();

@@ -25,7 +25,7 @@ export function answerHtml(m) {
 }
 
 /** A chat about one thing (a person, a note, a meeting), or about anything when `subject` is empty. */
-export function ChatPanel({ subject, chatId, onChat, ideas = [] }) {
+export function ChatPanel({ subject, chatId, onChat, ideas = [], listen = false }) {
   const nav = useNavigate();
   const { notify } = useApp();
   const [chat, setChat] = useState(null);
@@ -67,7 +67,7 @@ export function ChatPanel({ subject, chatId, onChat, ideas = [] }) {
         <div ref={end} />
       </div>
       <div className="chat-panel-composer">
-        <AskComposer busy={busy} placeholder={msgs.length ? 'Follow up…' : subject ? `Ask about ${subject.label}…` : 'Ask, or type @ to mention…'} onSend={send} />
+        <AskComposer busy={busy} autoListen={listen} placeholder={msgs.length ? 'Follow up…' : subject ? `Ask about ${subject.label}…` : 'Ask, or type @ to mention…'} onSend={send} />
       </div>
     </div>
   );
@@ -79,14 +79,16 @@ const IDEAS = {
   meeting: () => ['What should I prepare for this?', 'What came out of the last one?', 'What’s still open from this meeting?']
 };
 
+const GENERAL = ['What have I promised and not done?', 'Who on my team needs more from me?', 'Help me prepare for a hard conversation'];
+
 /** Ask about this, in a sheet. Chats stay with the subject. */
-export function AskSheet({ open, onClose, subject, chatId: initial = null }) {
+export function AskSheet({ open, onClose, subject, chatId: initial = null, listen = false }) {
   const [chatId, setChatId] = useState(initial);
   useEffect(() => { if (open) setChatId(initial); }, [open, initial]);
   const first = subject?.label?.split(' ')[0] || '';
   return (
     <Sheet open={open} onClose={onClose} title={subject ? `Ask about ${subject.label}` : 'Ask'}>
-      {open && <ChatPanel subject={subject} chatId={chatId} onChat={c => setChatId(c.id)} ideas={subject ? IDEAS[subject.kind]?.(first) || [] : []} />}
+      {open && <ChatPanel subject={subject} chatId={chatId} onChat={c => setChatId(c.id)} listen={listen} ideas={subject ? IDEAS[subject.kind]?.(first) || [] : GENERAL} />}
       {chatId && <Link className="btn ghost small" style={{ marginTop: 6 }} to={`/ask/${chatId}`} onClick={onClose}>Open in full screen</Link>}
     </Sheet>
   );

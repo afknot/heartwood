@@ -92,7 +92,12 @@ export function TeamThisWeek({ coverage, onChanged, embedded = true }) {
   const onRhythm = team.filter(p => p.on_rhythm).length;
   const needing = team.filter(p => p.needs?.length);
   const ask = (coverage.ask || []).filter(a => !asked.includes(a.id));
-  const status = p => (p.covered ? (p.read ? SHORT[p.read] : 'Seen') : p.on_rhythm ? 'Next week' : 'Not yet');
+  // Not seen yet: when you'll see them (from your 1:1s and calendar), else whether they're on rhythm.
+  const day = iso => new Date(iso).toLocaleDateString([], { weekday: 'short' });
+  const status = p => (p.covered ? (p.read ? SHORT[p.read] : 'Seen')
+    : p.next_this_week ? day(p.next_at)
+      : p.next_at ? 'Next week'
+        : p.on_rhythm ? 'On rhythm' : 'Not yet');
   return (
     <div className="coverage" style={embedded ? undefined : { borderTop: 0, marginTop: 0, paddingTop: 0 }}>
       <div className="row" style={{ gap: 8, marginBottom: 8 }}>
@@ -106,7 +111,7 @@ export function TeamThisWeek({ coverage, onChanged, embedded = true }) {
       <ul className="coverage-row">
         {team.map(p => {
           const needs = p.needs?.length > 0;
-          const label = `${p.name}: ${p.covered ? `seen this week${p.read ? `, seemed ${READS.find(r => r.k === p.read).label.toLowerCase()}` : ''}` : p.on_rhythm ? `on rhythm, next ${p.rhythm > 1 ? 'meeting soon' : 'week'}` : 'not yet this week'}${needs ? `, ${(p.headline || 'might need you').replace(first(p) + ' ', '')}` : ''}`;
+          const label = `${p.name}: ${p.covered ? `seen this week${p.read ? `, seemed ${READS.find(r => r.k === p.read).label.toLowerCase()}` : ''}` : p.next_at ? `next conversation ${new Date(p.next_at).toLocaleDateString([], { weekday: 'long' })}` : p.on_rhythm ? 'on rhythm' : 'not yet this week'}${needs ? `, ${(p.headline || 'might need you').replace(first(p) + ' ', '')}` : ''}`;
           const inner = <>
             <span className="coverage-avatar">
               <Avatar person={p} size={38} />

@@ -9,7 +9,6 @@ import { OccurrenceSheet, theirTimes } from '../components/Occurrence.jsx';
 import { MeetingSheet } from '../components/MeetingSheet.jsx';
 import { useApp } from '../lib/context.js';
 import { PracticeCard, WeekCard } from '../components/TodayExtras.jsx';
-import { AskButton } from '../components/AskButton.jsx';
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -126,7 +125,6 @@ export default function Today() {
           <div className="small muted">{new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div>
           <h1 className="today-head">{greeting()}</h1>
         </div>
-        <AskButton />
       </div>
 
       {data.end_of_day?.due && !eodHidden && (
