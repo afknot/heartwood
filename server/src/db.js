@@ -357,7 +357,19 @@ const MIGRATIONS = [
     const cols = db.prepare(`PRAGMA table_info(followups)`).all().map(c => c.name);
     if (!cols.includes('let_go')) db.exec(`ALTER TABLE followups ADD COLUMN let_go TEXT`);
     if (!cols.includes('let_go_at')) db.exec(`ALTER TABLE followups ADD COLUMN let_go_at TEXT`);
-  }
+  },
+  // 19: how someone seemed to you after a conversation (your read, private): good | okay | carrying
+  () => db.exec(`
+    CREATE TABLE IF NOT EXISTS person_reads (
+      id TEXT PRIMARY KEY,
+      person_id TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+      entry_id TEXT REFERENCES entries(id) ON DELETE SET NULL,
+      read TEXT NOT NULL,
+      note TEXT NOT NULL DEFAULT '',
+      at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_person_reads ON person_reads(person_id, at);
+  `)
 ];
 {
   const current = db.pragma('user_version', { simple: true });

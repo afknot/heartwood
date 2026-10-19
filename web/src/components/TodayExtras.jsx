@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import Icon from './Icon.jsx';
 import Avatar from './Avatar.jsx';
+import { TeamThisWeek } from './TeamWeek.jsx';
 
 const timeOf = iso => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(':00', '');
 const plural = (n, one, many = `${one}s`) => `${n}\u00a0${n === 1 ? one : many}`;
@@ -123,11 +124,10 @@ function weekSummary(t) {
 }
 
 /** Your week: five rings that fill in Monday to Friday, and who on your team you've had time with. */
-export function WeekCard({ rings, coverage }) {
+export function WeekCard({ rings, coverage, onChanged }) {
   const [explain, setExplain] = useState(false);
   const [history, setHistory] = useState(false);
   const team = coverage?.people || [];
-  const seen = team.filter(p => p.covered).length;
   if (!rings && !team.length) return null;
   const summary = weekSummary(rings?.this_week);
   const past = (rings?.weeks || []).slice(0, -1).slice(-10);
@@ -161,28 +161,7 @@ export function WeekCard({ rings, coverage }) {
           ))}
         </ul>
       )}
-      {team.length > 0 && (
-        <div className="coverage" style={rings ? undefined : { borderTop: 0, marginTop: 0, paddingTop: 0 }}>
-          <div className="row" style={{ gap: 8, marginBottom: 8 }}>
-            <span className="eyebrow grow">{seen === team.length ? 'Time with everyone this week' : 'Your team this week'}</span>
-            <span className="small muted">{seen} of {team.length}</span>
-          </div>
-          <ul className="coverage-row">
-            {team.map(p => (
-              <li key={p.id}>
-                <Link to={`/people/${p.id}`} className={`coverage-person${p.covered ? ' is-covered' : ''}`}
-                  aria-label={`${p.name}: ${p.covered ? `${p.how === 'note' ? 'a note' : 'time together'} this week` : 'not yet this week'}`}>
-                  <span className="coverage-avatar">
-                    <Avatar person={p} size={38} />
-                    {p.covered && <span className="coverage-check" aria-hidden="true"><Icon name="check" size={11} /></span>}
-                  </span>
-                  <span className="coverage-name">{p.name.split(' ')[0]}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <TeamThisWeek coverage={coverage} onChanged={onChanged} embedded={!!rings} />
     </section>
   );
 }

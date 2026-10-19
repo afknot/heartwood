@@ -9,7 +9,8 @@ import { complete } from '../llm.js';
 import { agenda, makePrep } from '../agenda.js';
 import { endOfDayDue, startEndOfDay } from '../notify.js';
 import { todaysPractice, swapPractice, markPractice } from '../practices.js';
-import { growthRings, teamCoverage } from '../growth.js';
+import { growthRings } from '../growth.js';
+import { teamWeek, saveRead, clearTodayRead, readsFor, dismissNeeds } from '../team.js';
 import { STYLES } from '../leadership.js';
 import { templateList, suggestTemplate, findAgenda, getAgenda, buildAgenda, updateAgenda, deleteAgenda, shareText, startNotes } from '../oneonone.js';
 import { publicKey, saveSubscription, removeSubscription, sendAll, morningSummary, weeklyDebrief, notificationStatus, saveNotificationSettings } from '../notify.js';
@@ -70,7 +71,7 @@ today.get('/today', (req, res) => {
     moment,
     top: topPick({ practice, moment, events, eod }),
     rings: safely(growthRings),
-    coverage: safely(teamCoverage),
+    coverage: safely(() => teamWeek({ agendaFn: agenda })),
     has_entries: !!db.prepare('SELECT 1 FROM entries LIMIT 1').get()
   });
 });
@@ -97,6 +98,15 @@ function topPick({ practice, moment, events, eod }) {
   if (moment) return 'moment';
   return practice?.quote ? 'quote' : practice ? 'practice' : null;
 }
+
+// ---------- your team this week: how they seemed (your read), and dismissing "might need you" ----------
+today.post('/team/:id/read', (req, res) => {
+  try { res.json(saveRead({ personId: req.params.id, read: req.body?.read, note: req.body?.note || '', entryId: req.body?.entry_id || null })); }
+  catch (err) { res.status(err.status || 400).json({ error: err.message }); }
+});
+today.delete('/team/:id/read', (req, res) => res.json(clearTodayRead(req.params.id)));
+today.get('/team/:id/reads', (req, res) => res.json(readsFor(req.params.id)));
+today.post('/team/:id/dismiss', (req, res) => { dismissNeeds(req.params.id); res.json({ ok: true }); });
 
 // "Something to try": another one for today, or mark it tried.
 today.post('/practice/another', (req, res) => res.json(swapPractice()));

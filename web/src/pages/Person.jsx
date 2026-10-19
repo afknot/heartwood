@@ -7,6 +7,7 @@ import EntryItem from '../components/EntryItem.jsx';
 import Avatar from '../components/Avatar.jsx';
 import Growth from '../components/Growth.jsx';
 import { FollowupItem, AddFollowup, PrepSheet, RespondSheet } from '../components/Followups.jsx';
+import { ReadTrend } from '../components/TeamWeek.jsx';
 import { PersonForm } from './People.jsx';
 import { useApp } from '../lib/context.js';
 import { RELATIONSHIPS, formatDate, renderMarkdown } from '../lib/format.js';
@@ -163,6 +164,8 @@ export default function Person() {
         {!schedules.length && !meetings.length && <p className="muted small" style={{ margin: '4px 0' }}>No regular 1:1 with {p.name.split(' ')[0]} yet.</p>}
         <Link to={`/schedule?new=1&person=${p.id}`} className="btn ghost small" style={{ marginTop: 4, paddingLeft: 0 }}><Icon name="plus" size={16} /> {schedules.length ? 'Add another' : 'Set up a recurring 1:1'}</Link>
       </section>
+
+      {p.relationship === 'direct_report' && <ReadTrend person={p} />}
 
       <section className="card mt" style={{ padding: '10px 16px' }}>
         <div className="analysis-head"><Icon name="check" /><h2 style={{ fontSize: 18 }}>Open follow-ups</h2>

@@ -145,7 +145,7 @@ export default function Today() {
       )}
 
       {(data.practice || data.moment) && <PracticeCard key={data.practice?.day || 'm'} practice={data.practice} moment={data.moment} top={data.top} notify={notify} onChange={load} />}
-      {data.has_entries && <WeekCard rings={data.rings} coverage={data.coverage} />}
+      {data.has_entries && <WeekCard rings={data.rings} coverage={data.coverage} onChanged={load} />}
 
       {/* ---------- Coming up ---------- */}
       <div className="section-head"><Icon name="calendar" size={20} /><h2>Coming up</h2>
