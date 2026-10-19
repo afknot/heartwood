@@ -1,0 +1,72 @@
+services:
+  heartwood:
+    build: .
+    container_name: heartwood
+    restart: unless-stopped
+    env_file: .env
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./data:/data
+    # Only reachable from the server itself; your reverse proxy forwards to it.
+    ports:
+      - "${HEARTWOOD_BIND:-127.0.0.1}:${HEARTWOOD_PORT:-3410}:3000"
+
+  # Optional: private, on-server transcription.
+  # Start with:  docker compose --profile whisper up -d
+  # and set WHISPER_URL=http://whisper:9000 in .env
+  whisper:
+    image: onerahmet/openai-whisper-asr-webservice:latest
+    container_name: heartwood-whisper
+    restart: unless-stopped
+    profiles: ["whisper"]
+    environment:
+      - ASR_ENGINE=faster_whisper
+      - ASR_MODEL=${WHISPER_MODEL:-small}
+    volumes:
+      - whisper-cache:/root/.cache
+
+  # Optional: nightly encrypted backups with restic (see README → Backups).
+  # Turned on automatically by deploy/install.sh when RESTIC_PASSWORD is set in .env.
+  backup:
+    build:
+      context: ./deploy
+      dockerfile: backup.Dockerfile
+    image: heartwood-backup:local
+    container_name: heartwood-backup
+    restart: unless-stopped
+    profiles: ["backup"]
+    env_file: .env
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    volumes:
+      - ./data:/data:ro
+      - ./backups:/backups
+      - ./deploy/backup.sh:/backup.sh:ro
+      - restic-cache:/root/.cache/restic
+      - ./rclone:/root/.config/rclone   # Google Drive (or other rclone) connection, made by deploy/setup-gdrive.sh
+      - ./data/backup-status:/status    # how the last backup went (read by Settings), and "Back up now" requests
+
+  # Optional: HTTPS for journal.yourdomain with automatic Let's Encrypt certificates.
+  # Skip this if you already run a reverse proxy (Caddy, Nginx, Nginx Proxy Manager…).
+  # Start with:  docker compose --profile caddy up -d
+  caddy:
+    image: caddy:2
+    container_name: heartwood-caddy
+    restart: unless-stopped
+    profiles: ["caddy"]
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      - HEARTWOOD_DOMAIN=${HEARTWOOD_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  restic-cache:
+  whisper-cache:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,16 @@
+# Used by the optional "caddy" service in docker-compose.yml.
+# HEARTWOOD_DOMAIN comes from .env, e.g. heartwood.yourdomain.com
+{$HEARTWOOD_DOMAIN} {
+	encode zstd gzip
+	request_body {
+		max_size 600MB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+	reverse_proxy heartwood:3000
+}
+
+# If you run Caddy directly on the host instead, use the same block with:
+#   reverse_proxy 127.0.0.1:3410
