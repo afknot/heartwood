@@ -1,3 +1,4 @@
+import { talk } from './routes/talk.js';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import fs from 'node:fs';
@@ -92,6 +93,7 @@ app.use('/api/people', people);
 app.use('/api', ai);
 app.use('/api', settings);
 app.use('/api', career);
+app.use('/api', talk);
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 
 app.use((err, req, res, next) => {

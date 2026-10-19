@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { AskButton } from '../components/AskButton.jsx';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import Icon from '../components/Icon.jsx';
@@ -38,6 +39,14 @@ export default function Journal() {
   useEffect(() => { const t = setTimeout(load, q ? 250 : 0); return () => clearTimeout(t); }, [load, q]);
   useEffect(() => { api.get('/entries/tags').then(r => setTags(r.map(x => x.tag))).catch(() => {}); }, []);
   useEffect(() => { listPending().then(l => setPending(l.filter(p => !p.draft))).catch(() => {}); }, []);
+  // Old "Follow-up update" notes can move out of the journal, onto the people they're about.
+  const [updates, setUpdates] = useState(0);
+  useEffect(() => { api.get('/context/move-updates').then(r => setUpdates(r.count || 0)).catch(() => {}); }, []);
+  async function moveUpdates() {
+    if (!confirm(`Move ${updates} update note${updates === 1 ? '' : 's'} out of your journal? Each becomes context on the people it’s about, where Ask and prep still use it. Notes with files stay in your journal.`)) return;
+    const r = await api.post('/context/move-updates');
+    setUpdates(0); notify(`Moved ${r.moved} update${r.moved === 1 ? '' : 's'} to the people they’re about`); load();
+  }
 
   // Keep busy entries fresh
   useEffect(() => {
@@ -80,6 +89,7 @@ export default function Journal() {
     <main className="page">
       <div className="topbar">
         <h1>Journal</h1>
+        <AskButton />
         <button className="icon-btn" onClick={() => setAdding(true)} aria-label="Add"><Icon name="plus" /></button>
       </div>
 
@@ -99,6 +109,13 @@ export default function Journal() {
           <button key={t} aria-pressed={tag === t} className={`chip${tag === t ? ' on' : ''}`} onClick={() => setTag(tag === t ? '' : t)}>#{t}</button>
         ))}
       </div>
+
+      {updates > 0 && (
+        <div className="banner mt">
+          <span className="grow small">{updates} note{updates === 1 ? ' is a' : 's are'} just follow-up updates. Move {updates === 1 ? 'it' : 'them'} to the people {updates === 1 ? 'it’s' : 'they’re'} about, to keep your journal for real entries?</span>
+          <button className="btn small" onClick={moveUpdates}>Move</button>
+        </div>
+      )}
 
       {pending.length > 0 && (
         <div className="banner warn mt">

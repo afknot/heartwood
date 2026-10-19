@@ -3,6 +3,7 @@ import { db, newId, now, getSettings, listPeople } from '../db.js';
 import { getAttachments } from '../ask.js';
 import { listFollowups, findSource, tidyPlan, tidyApply, restoreFollowups, bulkFollowups, oldOpenCount, letGo } from '../followups.js';
 import { goodMoment } from '../moments.js';
+import { addContext } from '../context.js';
 import { local, startOfLocalDay } from '../localtime.js';
 import { calendarStatus, connectCalendar, disconnectCalendar, syncCalendar, upcomingEvents, meetingDetail, setMeetingPeople, linkAttendee, meetingSeries } from '../calendar.js';
 import { complete } from '../llm.js';
@@ -219,17 +220,34 @@ today.post('/followups/respond/apply', (req, res) => {
   const done = db.prepare('UPDATE followups SET done_at = ? WHERE id = ? AND done_at IS NULL');
   const dismiss = db.prepare('UPDATE followups SET dismissed = 1 WHERE id = ?');
   const update = db.prepare('UPDATE followups SET text = ? WHERE id = ?');
-  let n = 0, entryId = null;
+  let n = 0, entryId = null, contextCount = 0;
   db.transaction(() => {
     for (const c of changes.slice(0, 500)) {
       if (c.action === 'done') n += done.run(t, c.id).changes;
       else if (c.action === 'dismiss') n += dismiss.run(c.id).changes;
       else if (c.action === 'update' && String(c.text || '').trim()) n += update.run(String(c.text).trim().slice(0, 500), c.id).changes;
     }
-    // Keep your explanation in the journal, so the context isn't lost with the ticked-off items.
+    // Keep your explanation, so the context isn't lost with the ticked-off items. Plain text goes on
+    // the context thread of the people it's about (not your journal); with files, or when you ask for
+    // it, it becomes a journal note.
     const note = req.body?.note;
     const files = getAttachments((Array.isArray(note?.attachments) ? note.attachments : []).map(String).slice(0, 8));
-    if (note?.text?.trim() || files.length) {
+    const aboutIds = new Set(note?.person_id ? [note.person_id] : []);
+    {
+      const fq = db.prepare('SELECT person_id, entry_id FROM followups WHERE id = ?');
+      const eq = db.prepare('SELECT person_id FROM entry_people WHERE entry_id = ?');
+      for (const c of [...changes.slice(0, 500), ...(note?.followup_id ? [{ id: note.followup_id }] : [])]) {
+        const f = fq.get(c.id);
+        if (f?.person_id) aboutIds.add(f.person_id);
+        else if (f?.entry_id) { const linked = eq.all(f.entry_id); if (linked.length === 1) aboutIds.add(linked[0].person_id); }
+      }
+    }
+    if (note?.text?.trim() && !files.length && !note.to_journal && aboutIds.size) {
+      for (const pid of [...aboutIds].slice(0, 20)) {
+        if (db.prepare('SELECT 1 FROM people WHERE id = ?').get(pid)) addContext({ kind: 'person', id: pid, text: String(note.text).trim().slice(0, 4000), source: 'update' });
+      }
+      contextCount = aboutIds.size;
+    } else if (note?.text?.trim() || files.length) {
       entryId = newId();
       db.prepare(`INSERT INTO entries(id, title, kind, body_md, tags, created_at, updated_at) VALUES (?, ?, 'note', ?, '["follow-ups"]', ?, ?)`)
         .run(entryId, String(note.title || 'Follow-up update').slice(0, 200), String(note.text || '').trim().slice(0, 20000) || 'Update with attached files.', t, t);
@@ -250,7 +268,7 @@ today.post('/followups/respond/apply', (req, res) => {
       for (const id of [...ids].slice(0, 20)) ins.run(entryId, id);
     }
   })();
-  res.json({ changed: n, entry_id: entryId });
+  res.json({ changed: n, entry_id: entryId, context: contextCount });
 });
 
 today.post('/followups/let-go', (req, res) => {

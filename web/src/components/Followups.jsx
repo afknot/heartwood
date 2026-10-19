@@ -135,7 +135,7 @@ export function RespondSheet({ open, onClose, followup = null, personId = null, 
         changes,
         note: saveNote ? { text: followup ? `**Re: ${followup.text}**\n\n${text.trim()}` : text.trim(), title: 'Follow-up update', person_id: pid, followup_id: followup?.id || null, attachments: att.ready.map(f => f.id) } : null
       });
-      notify(r.changed ? `Updated ${r.changed} follow-up${r.changed === 1 ? '' : 's'}` : 'Saved');
+      notify(r.changed ? `Updated ${r.changed} follow-up${r.changed === 1 ? '' : 's'}${r.context ? ', and kept your update with them' : ''}` : r.context ? 'Kept your update as context' : 'Saved');
       onApplied?.(r); onClose();
     } catch (x) { setErr(x.message); }
     finally { setBusy(false); }
@@ -164,7 +164,7 @@ export function RespondSheet({ open, onClose, followup = null, personId = null, 
         </form>
       ) : <>
         {result.changes.length === 0 ? (
-          <p className="muted">Nothing in your open follow-ups looks settled by this{followup ? ', including this one' : ''}. You can still save it as a note{followup ? ' or mark this one done' : ''}.</p>
+          <p className="muted">Nothing in your open follow-ups looks settled by this{followup ? ', including this one' : ''}. You can still keep it as context{followup ? ' or mark this one done' : ''}.</p>
         ) : (
           <p className="small muted" style={{ marginTop: 0 }}>Checked {result.candidate_count} open follow-ups. Untick anything that isn’t right.</p>
         )}
@@ -180,7 +180,7 @@ export function RespondSheet({ open, onClose, followup = null, personId = null, 
           </label>
         ))}
         <label className="toggle" style={{ borderTop: 0 }}>
-          <span className="grow">Save my update as a note<small>Keeps the context in your journal.</small></span>
+          <span className="grow">Keep my update as context<small>Saved with the people it’s about, not in your journal. Ask, prep and drafted messages use it. (With files attached, it becomes a journal note.)</small></span>
           <span className="switch"><input type="checkbox" checked={saveNote} onChange={e => setSaveNote(e.target.checked)} /><i /></span>
         </label>
         {err && <div className="banner error" role="alert">{err}</div>}

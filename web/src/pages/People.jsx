@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AskButton } from '../components/AskButton.jsx';
 import { Link, useNavigate } from 'react-router-dom';
 import Icon from '../components/Icon.jsx';
 import Sheet from '../components/Sheet.jsx';
@@ -100,7 +101,8 @@ export default function People() {
   return (
     <main className="page">
       <div className="topbar">
-        <h1>People</h1>
+        <h1>Team</h1>
+        <AskButton />
         <button className="icon-btn" onClick={() => setAdding(true)} aria-label="Add person"><Icon name="plus" /></button>
       </div>
 

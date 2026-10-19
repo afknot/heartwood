@@ -7,6 +7,7 @@ import Avatar from './Avatar.jsx';
 import { PeoplePicker } from './Pickers.jsx';
 import { useApp } from '../lib/context.js';
 import { whenLong, theirTimes } from './Occurrence.jsx';
+import ContextBar from './ContextBar.jsx';
 
 /**
  * A meeting from your calendar or an invite: who's in it (set by hand or matched automatically),
@@ -86,6 +87,7 @@ export function MeetingSheet({ uid, ev, onClose, onChanged, onPrep }) {
             <button className="btn" style={{ flex: 1 }} onClick={writeNote}><Icon name="note" size={18} /> Write notes</button>
           </div>
         </>}
+        <ContextBar subject={{ kind: 'meeting', id: uid, label: m.title || ev?.title || 'this meeting' }} recipients={chosen} compact />
       </>}
       <PeoplePicker open={picker} onClose={() => setPicker(false)} selected={ids} onChange={next => save({ people: next })} />
     </Sheet>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import ContextBar from '../components/ContextBar.jsx';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import Icon from '../components/Icon.jsx';
@@ -209,6 +210,8 @@ export default function Entry() {
       <div className="mt" data-source="note">
         <Editor value={body} onChange={onBody} onFiles={['processing', 'transcribing', 'analyzing'].includes(entry.status) ? undefined : pasteFiles} placeholder={entry.status === 'processing' ? 'Reading your files… the note appears here.' : entry.has_audio ? 'Add your own notes…' : 'What’s on your mind?'} />
       </div>
+
+      <ContextBar subject={{ kind: 'entry', id, label: title.trim() ? `“${title.trim()}”` : 'this note' }} recipients={people} compact />
 
       {(entry.has_audio || entry.transcript) && (
         <details className="section" open={!!entry.transcript && !body.trim()}>

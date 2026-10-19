@@ -8,6 +8,7 @@ import Avatar from '../components/Avatar.jsx';
 import Growth from '../components/Growth.jsx';
 import { FollowupItem, AddFollowup, PrepSheet, RespondSheet } from '../components/Followups.jsx';
 import { ReadTrend } from '../components/TeamWeek.jsx';
+import ContextBar from '../components/ContextBar.jsx';
 import { PersonForm } from './People.jsx';
 import { useApp } from '../lib/context.js';
 import { RELATIONSHIPS, formatDate, renderMarkdown } from '../lib/format.js';
@@ -141,6 +142,8 @@ export default function Person() {
         <button className="btn small nowrap" onClick={() => setPrepOpen('agenda')}><Icon name="check" size={16} /> 1:1 agenda</button>
         <Link to={`/career?recognize=${p.id}#drafts`} className="btn small nowrap" title={`Draft a LinkedIn kudos post for ${p.name.split(' ')[0]}`}><Icon name="star" size={16} /> Kudos</Link>
       </div>
+
+      <ContextBar subject={{ kind: 'person', id: p.id, label: p.name }} recipients={[p]} />
 
       <section className="card mt" style={{ padding: '10px 16px' }}>
         <div className="analysis-head"><Icon name="repeat" /><h2 style={{ fontSize: 18 }}>Recurring</h2></div>

@@ -1,6 +1,7 @@
 // Ask your journal: gather the right context for a question, including anything you pointed at
 // (a person, a note, a recurring meeting) and anything you attached (files, photos), and keep
 // labels so the answer can link back to notes [E#], people [P#] and recurring meetings [R#].
+import { contextBlock } from './context.js';
 import { db, hydrateEntry, getSettings, listPeople, ftsQuery, safeJson } from './db.js';
 import { listFollowups } from './followups.js';
 import { listSchedules } from './schedules.js';
@@ -130,6 +131,13 @@ export function buildAsk({ question, history = [], refs = [], attachments = [] }
     ...refsM.filter(r => pick('meeting', r.meeting.uid)).map(r => `the meeting "${r.meeting.title}" [${r.ref}]`)
   ];
   if (focus.length) system += `\n\nThe writer pointed you at: ${focus.join('; ')}. Center your answer on these.`;
+  // Updates and clarifications the writer added to these people, notes and meetings (not journal entries).
+  const ctx = contextBlock([
+    ...[...personIds].filter(id => peopleById[id]).slice(0, 6).map(id => ({ kind: 'person', id, label: `${peopleById[id].name} [${pRef[id]}]` })),
+    ...refsE.filter(r => r.pinned).map(r => ({ kind: 'entry', id: r.entry.id, label: `the note "${r.entry.title || 'Untitled'}" [${r.ref}]` })),
+    ...pickedMeetings.map(m => ({ kind: 'meeting', id: m.uid, label: `the meeting "${m.title}"` }))
+  ]);
+  if (ctx) system += `\n\n${ctx}`;
   system += `\n\nWhen you refer to a note, person or recurring meeting, cite its label in square brackets, e.g. [E3], [P2], [M1], so the writer can tap through. Cite only labels listed above. If the writer attached files or photos, read them closely and say what they show before drawing on the journal. Today is ${new Date().toISOString().slice(0, 10)}.`;
 
   // This turn: the question, with attached files' text and any photos.

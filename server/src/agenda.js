@@ -6,6 +6,7 @@ import { occurrences, findOccurrence, parseKey } from './schedules.js';
 import { listFollowups } from './followups.js';
 import { complete } from './llm.js';
 import { prepPrompt } from './prompts.js';
+import { contextBlock } from './context.js';
 
 /** Upcoming conversations, soonest first, each with its latest prep (if any). */
 export function agenda({ days = 7, from = null } = {}) {
@@ -35,6 +36,8 @@ export async function makePrep({ personId, eventKey = null }) {
   const followups = listFollowups({ status: 'open', personId: person.id, limit: 30 });
   const s = getSettings();
   const { system, messages } = prepPrompt({ person, event: ev, entries, followups, profile: s.profile, people: listPeople() });
+  const ctx = contextBlock([{ kind: 'person', id: person.id, label: person.name }, ...(ev?.uid ? [{ kind: 'meeting', id: ev.uid, label: `this meeting` }] : [])]);
+  if (ctx) messages[0].content += `\n\n${ctx}`;
   const content = await complete({ system, messages, maxTokens: 2500 });
   const id = newId();
   const title = ev ? `Prep: ${ev.title}` : `Prep: ${person.name}`;

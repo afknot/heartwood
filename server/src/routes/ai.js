@@ -74,7 +74,11 @@ const chatOut = c => c && ({ ...c, archived: !!c.archived, messages: safeJson(c.
 
 ai.get('/chats', (req, res) => {
   const archived = req.query.archived === '1' ? 1 : 0;
-  const rows = db.prepare(`SELECT id, title, archived, created_at, updated_at, json_array_length(messages) AS count FROM chats WHERE archived = ? ORDER BY updated_at DESC LIMIT 200`).all(archived);
+  // ?subject_kind=person&subject_id=… lists the chats about one person, note or meeting.
+  const sk = ['person', 'entry', 'meeting'].includes(req.query.subject_kind) ? req.query.subject_kind : null;
+  const rows = sk
+    ? db.prepare(`SELECT id, title, archived, subject_kind, subject_id, created_at, updated_at, json_array_length(messages) AS count FROM chats WHERE subject_kind = ? AND subject_id = ? ORDER BY updated_at DESC LIMIT 50`).all(sk, String(req.query.subject_id || ''))
+    : db.prepare(`SELECT id, title, archived, subject_kind, subject_id, created_at, updated_at, json_array_length(messages) AS count FROM chats WHERE archived = ? ORDER BY updated_at DESC LIMIT 200`).all(archived);
   res.json(rows.map(r => ({ ...r, archived: !!r.archived })));
 });
 
@@ -127,7 +131,10 @@ ai.post('/ask', async (req, res, next) => {
     if (!chat) {
       const id = newId();
       const title = (question || `About ${attachments[0]?.name || 'a file'}`).replace(/\s+/g, ' ').slice(0, 80);
-      db.prepare('INSERT INTO chats(id, title, messages, created_at, updated_at) VALUES (?, ?, ?, ?, ?)').run(id, title, JSON.stringify(saved), t, t);
+      // Asked from a person, note or meeting: the chat stays with it.
+      const sub = req.body?.subject;
+      const sk = sub && ['person', 'entry', 'meeting'].includes(sub.kind) && typeof sub.id === 'string' ? sub : null;
+      db.prepare('INSERT INTO chats(id, title, messages, subject_kind, subject_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(id, title, JSON.stringify(saved), sk?.kind || null, sk ? sk.id.slice(0, 300) : null, t, t);
       chat = chatRow(id);
     } else {
       db.prepare('UPDATE chats SET messages = ?, archived = 0, updated_at = ? WHERE id = ?').run(JSON.stringify(saved), t, chat.id);

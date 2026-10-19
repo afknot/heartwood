@@ -4,7 +4,7 @@ import { Routes, Route, NavLink, Link, useLocation } from 'react-router-dom';
 import { api } from './api.js';
 import { flushPending } from './lib/pending.js';
 import Icon from './components/Icon.jsx';
-import { REFLECT_PATHS, lastReflect } from './components/ReflectNav.jsx';
+import { REFLECT_PATHS } from './components/ReflectNav.jsx';
 import Login from './pages/Login.jsx';
 import Journal from './pages/Journal.jsx';
 import Entry from './pages/Entry.jsx';
@@ -21,6 +21,8 @@ import Today from './pages/Today.jsx';
 import Schedule from './pages/Schedule.jsx';
 import Career from './pages/Career.jsx';
 import CareerDraft from './pages/CareerDraft.jsx';
+import You from './pages/You.jsx';
+import Voice from './pages/Voice.jsx';
 
 export default function App() {
   const [authed, setAuthed] = useState(null);
@@ -69,6 +71,8 @@ export default function App() {
           <Route path="/schedule" element={<Schedule />} />
           <Route path="/career" element={<Career />} />
           <Route path="/career/drafts/:id" element={<CareerDraft />} />
+          <Route path="/you" element={<You />} />
+          <Route path="/you/voice" element={<Voice />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/:section" element={<Settings />} />
           <Route path="/add" element={<AddFiles />} />
@@ -95,8 +99,8 @@ function TabBar() {
         {tab('/', 'today', 'Today', true)}
         {tab('/journal', 'journal', 'Journal')}
         <Link to="/record" className="tab-record" aria-label="Record"><Icon name="mic" size={26} /></Link>
-        {tab('/people', 'people', 'People')}
-        {tab(lastReflect(), 'insights', 'Reflect', false, REFLECT_PATHS.test(loc.pathname))}
+        {tab('/people', 'people', 'Team')}
+        {tab('/you', 'career', 'You', false, REFLECT_PATHS.test(loc.pathname))}
       </div>
     </nav>
   );

@@ -369,7 +369,35 @@ const MIGRATIONS = [
       at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_person_reads ON person_reads(person_id, at);
-  `)
+  `),
+  // 20: chats kept with what they're about; context threads (updates and clarifications that aren't
+  // journal entries); samples of your own writing, so drafted messages sound like you
+  () => {
+    const cols = db.prepare(`PRAGMA table_info(chats)`).all().map(c => c.name);
+    if (!cols.includes('subject_kind')) db.exec(`ALTER TABLE chats ADD COLUMN subject_kind TEXT`);
+    if (!cols.includes('subject_id')) db.exec(`ALTER TABLE chats ADD COLUMN subject_id TEXT`);
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_chats_subject ON chats(subject_kind, subject_id);
+      CREATE TABLE IF NOT EXISTS context_notes (
+        id TEXT PRIMARY KEY,
+        subject_kind TEXT NOT NULL,          -- person | entry | meeting
+        subject_id TEXT NOT NULL,
+        text TEXT NOT NULL,
+        source TEXT NOT NULL DEFAULT 'you',  -- you | update | sent | moved
+        at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_context_subject ON context_notes(subject_kind, subject_id, at);
+      CREATE TABLE IF NOT EXISTS writing_samples (
+        id TEXT PRIMARY KEY,
+        text TEXT NOT NULL,
+        kind TEXT NOT NULL DEFAULT 'example', -- exercise | example (you pasted it) | edited (a draft you changed and used)
+        channel TEXT NOT NULL DEFAULT '',
+        audience TEXT NOT NULL DEFAULT '',    -- direct_report | peer | manager | stakeholder | team
+        situation TEXT NOT NULL DEFAULT '',   -- exercise id, or a short label
+        at TEXT NOT NULL
+      );
+    `);
+  }
 ];
 {
   const current = db.pragma('user_version', { simple: true });

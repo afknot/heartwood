@@ -7,6 +7,7 @@ import Sheet from './Sheet.jsx';
 import Avatar from './Avatar.jsx';
 import { ACCEPT } from '../pages/AddFiles.jsx';
 import { useApp } from '../lib/context.js';
+import { useDictation, DictationPanel } from './VoiceInput.jsx';
 
 // The Ask composer: type, @-mention a person, note or recurring meeting, attach files and photos,
 // or say your question out loud (it's transcribed into the box so you can fix it before sending).
@@ -16,11 +17,6 @@ const TYPE_LABEL = { person: 'Person', entry: 'Note', schedule: 'Recurring', mee
 const fileIcon = kind => (kind === 'image' ? 'image' : 'clip');
 // "2025-04-28" → "Apr 28, 2025"; anything else passes through.
 const when = sub => String(sub || '').replace(/\b(\d{4}-\d{2}-\d{2})\b/g, d => new Date(`${d}T12:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }));
-
-function pickMime() {
-  const opts = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4;codecs=mp4a.40.2', 'audio/mp4', 'audio/ogg;codecs=opus'];
-  return opts.find(t => window.MediaRecorder?.isTypeSupported?.(t)) || '';
-}
 
 /** "@Mai" right before the caret → "Mai" (allows one space, for full names). */
 function mentionAt(text, caret) {
@@ -38,14 +34,12 @@ export default function AskComposer({ busy, placeholder, onSend }) {
   const [suggest, setSuggest] = useState(null); // { query, start, items, index }
   const [menu, setMenu] = useState(false);
   const [picker, setPicker] = useState(false);
-  const [rec, setRec] = useState(null); // { started } while recording
-  const [transcribing, setTranscribing] = useState(false);
-  const [secs, setSecs] = useState(0);
+  // Voice: the same listening panel as everywhere else in Heartwood.
+  const d = useDictation({ onText: t => { setText(x => (x.trim() ? `${x.trimEnd()} ${t}` : t)); requestAnimationFrame(() => ta.current?.focus()); } });
+  const rec = d.state === 'recording', transcribing = d.state === 'transcribing';
   const ta = useRef();
   const fileInput = useRef();
   const camInput = useRef();
-  const recorder = useRef(null);
-  const timer = useRef();
 
   const grow = () => { const el = ta.current; if (el) { el.style.height = 'auto'; el.style.height = `${Math.min(160, el.scrollHeight)}px`; el.style.overflowY = el.scrollHeight > 160 ? 'auto' : 'hidden'; } };
   useEffect(grow, [text]);
@@ -92,51 +86,6 @@ export default function AskComposer({ busy, placeholder, onSend }) {
     if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) { e.preventDefault(); send(); }
   }
 
-  // ---------- voice ----------
-  async function startRec() {
-    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return notify('Voice input isn’t supported in this browser.');
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-      const mime = pickMime();
-      const r = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
-      const chunks = [];
-      r.ondataavailable = e => e.data.size && chunks.push(e.data);
-      r.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop());
-        clearInterval(timer.current);
-        setRec(null);
-        const blob = new Blob(chunks, { type: r.mimeType || 'audio/webm' });
-        if (blob.size < 1500) return;
-        setTranscribing(true);
-        try {
-          const ext = blob.type.includes('mp4') ? 'm4a' : blob.type.includes('ogg') ? 'ogg' : 'webm';
-          const form = new FormData();
-          form.append('audio', blob, `question.${ext}`);
-          const res = await fetch('/api/ask/dictate', { method: 'POST', body: form, credentials: 'same-origin' });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error(data.error || 'Couldn’t transcribe that.');
-          if (data.text) setText(t => (t.trim() ? `${t.trimEnd()} ${data.text}` : data.text));
-          requestAnimationFrame(() => ta.current?.focus());
-        } catch (e) { notify(e.message); }
-        finally { setTranscribing(false); }
-      };
-      recorder.current = r;
-      r.start();
-      setSecs(0);
-      const started = Date.now();
-      timer.current = setInterval(() => {
-        const s = Math.round((Date.now() - started) / 1000);
-        setSecs(s);
-        if (s >= 300) r.state === 'recording' && r.stop(); // five minutes is plenty for a question
-      }, 500);
-      setRec({ started });
-    } catch {
-      notify('Heartwood needs microphone access for voice input.');
-    }
-  }
-  const stopRec = () => recorder.current?.state === 'recording' && recorder.current.stop();
-  useEffect(() => () => { clearInterval(timer.current); if (recorder.current?.state === 'recording') recorder.current.stop(); }, []);
-
   const { uploading, ready } = att;
   const canSend = !busy && !uploading && !rec && !transcribing && (text.trim() || ready.length);
 
@@ -176,8 +125,8 @@ export default function AskComposer({ busy, placeholder, onSend }) {
 
         <div className="composer-inner">
           <button type="button" className="icon-btn ghost-btn" onClick={() => setMenu(true)} aria-label="Add a file, photo, person, note or meeting" disabled={!!rec}><Icon name="plus" /></button>
-          {rec ? (
-            <div className="rec-pill" role="status"><span className="pulse" /> Listening… {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}</div>
+          {rec || transcribing ? (
+            <div className="grow" style={{ minWidth: 0 }}><DictationPanel d={d} /></div>
           ) : (
             <textarea ref={ta} className="textarea" rows={1} aria-label="Message" value={text}
               placeholder={transcribing ? 'Transcribing…' : placeholder} disabled={transcribing}
@@ -185,10 +134,10 @@ export default function AskComposer({ busy, placeholder, onSend }) {
               onPaste={e => { const f = pastedFiles(e); if (f.length) { e.preventDefault(); attach(f); } }}
               onBlur={() => setTimeout(() => setSuggest(null), 150)} />
           )}
-          {rec
-            ? <button type="button" className="icon-btn rec-btn" onClick={stopRec} aria-label="Stop and transcribe"><Icon name="stop" /></button>
+          {rec || transcribing
+            ? null
             : !text.trim() && !ready.length
-              ? <button type="button" className="icon-btn ghost-btn" onClick={startRec} disabled={transcribing || busy} aria-label="Ask by voice">{transcribing ? <span className="spinner" /> : <Icon name="mic" />}</button>
+              ? <button type="button" className="icon-btn ghost-btn" onClick={d.start} disabled={busy} aria-label="Ask by voice"><Icon name="mic" /></button>
               : <button className="icon-btn" disabled={!canSend} aria-label="Send"><Icon name="send" /></button>}
         </div>
       </div>
