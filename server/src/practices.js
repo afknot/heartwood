@@ -24,6 +24,10 @@ const MEDIATION = 'interest-based conflict resolution';
 const GROVE = 'Andy Grove, High Output Management';
 const TNG = ep => `Star Trek: The Next Generation, “${ep}”`;
 const TOS = ep => `Star Trek, “${ep}”`;
+const VOY = ep => `Star Trek: Voyager, “${ep}”`;
+const PARKS = ep => `Parks and Recreation, “${ep}”`;
+const OFFICE = ep => `The Office, “${ep}”`;
+const ROCK = ep => `30 Rock, “${ep}”`;
 
 // fit: when it suits the day. talk = needs a conversation today; busy = a full day; any = always.
 export const PRACTICES = [
@@ -194,7 +198,25 @@ export const PRACTICES = [
   { id: 'more-facts', fit: 'any', styles: ['mediator', 'coach'], source: TOS('Space Seed'), title: 'Get one more fact first',
     how: 'Before you react to a report of a problem today, ask one more question or check one more source. First accounts are rarely the whole picture.' },
   { id: 'no-drumhead', fit: 'any', styles: ['mediator', 'servant'], source: TNG('The Drumhead'), title: 'Look for the cause, not a culprit',
-    how: 'When something goes wrong, ask what in the process let it happen before asking who did it. Fear of blame hides the next problem.' }
+    how: 'When something goes wrong, ask what in the process let it happen before asking who did it. Fear of blame hides the next problem.' },
+  { id: 'ask-like-data', fit: 'talk', styles: ['coach', 'empathetic'], source: TNG('Data’s questions'), title: 'Ask the question everyone skips',
+    how: 'Like Data trying to understand the crew, ask one plain, curious question about something your team treats as obvious. “Why do we do it this way?” often surfaces what nobody has said.' },
+  { id: 'number-one', fit: 'any', styles: ['candid', 'servant'], source: TNG('Riker as first officer'), title: 'Disagree in the ready room, back it on the bridge',
+    how: 'If you disagree with a decision, say so directly and in private, before it goes out. Once it’s made, support it in front of the team, and ask your own people to do the same with you.' },
+  { id: 'logic-flaw', fit: 'any', styles: ['candid', 'mediator'], source: VOY('Counterpoint'), title: 'Test the argument you like',
+    how: 'When a plan explains itself a little too neatly, ask someone you trust to argue the other side for five minutes. Good reasoning survives it.' },
+  { id: 'greater-sum', fit: 'talk', styles: ['mediator'], source: TOS('The Savage Curtain'), title: 'Invite the different view',
+    how: 'In a discussion today, find the person who sees it differently and ask them to go first. Treat the difference as the useful part, not the obstacle.' },
+  { id: 'whole-ass', fit: 'busy', styles: ['space', 'coach'], source: PARKS('Sweet Sixteen'), title: 'One thing, fully',
+    how: 'Pick the one thing that matters most today and give it a real block of time, phone down. Let the rest be good enough. Help one person on your team do the same.' },
+  { id: 'knope-compliment', fit: 'talk', styles: ['empathetic'], source: PARKS('Leslie and Ann'), title: 'Compliment like Leslie Knope',
+    how: 'Tell someone, specifically and generously, what they did well and why it mattered. Leslie’s compliments land because they’re detailed. Skip “great job”; name the thing.' },
+  { id: 'dundies', fit: 'any', styles: ['empathetic', 'servant'], source: OFFICE('The Dundies'), title: 'Hand out a (real) Dundie',
+    how: 'Recognize one person in front of the team for something specific they did this week. Keep it warm and true; unlike Michael, make it about them, not the show.' },
+  { id: 'lowest-job', fit: 'busy', styles: ['servant'], source: ROCK('The Head and the Hair'), title: 'Spend an hour in their seat',
+    how: 'Jack’s executives took one day a year in an entry-level job. Try an hour: sit with someone doing front-line work, do a piece of it, and ask what slows them down.' },
+  { id: 'dont-speak-first', fit: 'talk', styles: ['mediator', 'coach'], source: ROCK('Today You Are a Man'), title: 'Let them open',
+    how: 'In a hard or high-stakes conversation, ask an open question and then wait. Hearing their position first tells you what actually matters to them.' }
 ];
 const BY_ID = Object.fromEntries(PRACTICES.map(p => [p.id, p]));
 

@@ -165,7 +165,7 @@ A good default is Whisper for transcription and Claude for reflection: audio nev
 
 To change how the coach talks to you, edit `server/src/prompts.js`. Leadership styles and quotes are in `server/src/leadership.js`, daily practices in `server/src/practices.js`, and 1:1 agenda structures in `server/src/oneonone.js`.
 
-The practices and agenda structures are written for Heartwood, inspired by Robert K. Greenleaf, L. David Marquet, Amy Edmondson, Michael Bungay Stanier, Kim Scott, Brené Brown, Bob Chapman, Andy Grove, Lara Hogan, Marshall Rosenberg, Reed Hastings and Erin Meyer, Dale Carnegie, Thich Nhat Hanh, and the captains of *Star Trek* and *Star Trek: The Next Generation*. Quotes are kept short and attributed.
+The practices and agenda structures are written for Heartwood, inspired by Robert K. Greenleaf, L. David Marquet, Amy Edmondson, Michael Bungay Stanier, Kim Scott, Brené Brown, Bob Chapman, Andy Grove, Lara Hogan, Marshall Rosenberg, Reed Hastings and Erin Meyer, Dale Carnegie, Thich Nhat Hanh, the crews of *Star Trek*, *The Next Generation* and *Voyager*, and the offices of *Parks and Recreation*, *The Office* and *30 Rock*. Quotes are kept short and attributed.
 
 ---
 
