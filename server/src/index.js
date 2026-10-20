@@ -131,4 +131,9 @@ startInviteChecks();
 startNotifications();
 startSnapshots();
 
-app.listen(config.port, () => console.log(`Heartwood listening on :${config.port}`));
+const server = app.listen(config.port, () => console.log(`Heartwood listening on :${config.port}`));
+// A long recording over a slow phone connection can take more than Node's default 5 minutes to upload;
+// cutting it off left recordings stuck on the phone. Allow up to an hour per request.
+server.requestTimeout = 60 * 60e3;
+server.headersTimeout = 65e3;
+server.keepAliveTimeout = 65e3;

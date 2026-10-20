@@ -4,9 +4,9 @@ import { api } from '../api.js';
 import Icon from '../components/Icon.jsx';
 import EntryItem from '../components/EntryItem.jsx';
 import { KINDS, dayKey } from '../lib/format.js';
-import { listPending, flushPending, removePending } from '../lib/pending.js';
 import { useApp } from '../lib/context.js';
 import Sheet from '../components/Sheet.jsx';
+import SavedRecordings from '../components/SavedRecordings.jsx';
 
 export default function Journal() {
   const nav = useNavigate();
@@ -19,7 +19,6 @@ export default function Journal() {
   const [person, setPerson] = useState('');
   const [tags, setTags] = useState([]);
   const [more, setMore] = useState(false);
-  const [pending, setPending] = useState([]);
   const [adding, setAdding] = useState(false);
   const timer = useRef();
 
@@ -37,7 +36,6 @@ export default function Journal() {
 
   useEffect(() => { const t = setTimeout(load, q ? 250 : 0); return () => clearTimeout(t); }, [load, q]);
   useEffect(() => { api.get('/entries/tags').then(r => setTags(r.map(x => x.tag))).catch(() => {}); }, []);
-  useEffect(() => { listPending().then(l => setPending(l.filter(p => !p.draft))).catch(() => {}); }, []);
   // Old "Follow-up update" notes can move out of the journal, onto the people they're about.
   const [updates, setUpdates] = useState(0);
   useEffect(() => { api.get('/context/move-updates').then(r => setUpdates(r.count || 0)).catch(() => {}); }, []);
@@ -64,11 +62,6 @@ export default function Journal() {
     nav(`/entry/${e.id}?fresh=1`);
   }
 
-  async function retryPending() {
-    const n = await flushPending();
-    setPending((await listPending()).filter(p => !p.draft));
-    if (n) { notify(`Uploaded ${n}`); load(); }
-  }
 
   async function loadMore() {
     const r = await query(entries.at(-1)?.created_at);
@@ -115,19 +108,7 @@ export default function Journal() {
         </div>
       )}
 
-      {pending.length > 0 && (
-        <div className="banner warn mt">
-          <span className="grow">{pending.length} recording{pending.length > 1 ? 's' : ''} saved on this phone, waiting to upload.
-            {pending.some(p => p.error) && <><br /><small>{pending.find(p => p.error).error}</small></>}
-          </span>
-          <button className="btn small" onClick={retryPending}>Retry</button>
-          {pending.some(p => p.error) && <button className="btn small danger" onClick={async () => {
-            if (!confirm('Delete the recordings that failed to upload? This cannot be undone.')) return;
-            for (const p of pending.filter(p => p.error)) await removePending(p.id);
-            setPending((await listPending()).filter(p => !p.draft));
-          }}>Discard</button>}
-        </div>
-      )}
+      <SavedRecordings onUploaded={load} />
 
       {entries && entries.length === 0 && (
         <div className="empty">

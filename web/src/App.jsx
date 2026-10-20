@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { AppCtx } from './lib/context.js';
 import { Routes, Route, NavLink, Link, useLocation } from 'react-router-dom';
 import { api } from './api.js';
-import { flushPending } from './lib/pending.js';
+import { startUploader } from './lib/pending.js';
+import { watchViewport } from './lib/viewport.js';
 import Icon from './components/Icon.jsx';
 import { REFLECT_PATHS } from './components/ReflectNav.jsx';
 import Login from './pages/Login.jsx';
@@ -24,6 +25,9 @@ import CareerDraft from './pages/CareerDraft.jsx';
 import You from './pages/You.jsx';
 import Voice from './pages/Voice.jsx';
 import { AskSheet } from './components/ContextBar.jsx';
+
+// Keep the tab bar and other fixed bars anchored on iPhone (see lib/viewport.js).
+watchViewport();
 
 export default function App() {
   const [authed, setAuthed] = useState(null);
@@ -62,10 +66,7 @@ export default function App() {
   useEffect(() => {
     if (!authed) return;
     refreshPeople();
-    const flush = () => flushPending().then(n => n && notify(`Uploaded ${n} saved recording${n > 1 ? 's' : ''}`));
-    flush();
-    window.addEventListener('online', flush);
-    return () => window.removeEventListener('online', flush);
+    startUploader(n => notify(`Uploaded ${n} recording${n > 1 ? 's' : ''}. Transcribing now.`));
   }, [authed, refreshPeople, notify]);
 
   if (authed === null) return null;

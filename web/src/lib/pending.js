@@ -101,6 +101,17 @@ export async function recoverInterrupted() {
   return out;
 }
 
+// ---------- uploading, with progress anyone can watch ----------
+// The upload state of each saved recording, broadcast as a "heartwood:uploads" window event so the
+// Journal (and anything else) can show progress: { [id]: { state, progress, error, at } }
+//   state: uploading | waiting (offline or the connection dropped; tries again on its own) | failed
+//   (the server turned it down) ; uploaded items drop out.
+const status = {};
+const emit = () => window.dispatchEvent(new window.CustomEvent('heartwood:uploads', { detail: { ...status } }));
+export const uploadStatus = () => ({ ...status });
+const set = (id, patch) => { status[id] = { ...(status[id] || {}), ...patch, at: Date.now() }; emit(); };
+const done = id => { delete status[id]; emit(); };
+
 let flushing = false;
 /** Try to upload anything left over (recovering interrupted recordings first). Returns how many succeeded. */
 export async function flushPending() {
@@ -109,20 +120,41 @@ export async function flushPending() {
   let ok = 0;
   try {
     await recoverInterrupted().catch(() => []);
-    if (!navigator.onLine) return 0;
-    for (const item of await listPending()) {
-      if (item.draft || !item.blob) continue; // still being recorded
+    const items = (await listPending()).filter(i => !i.draft && i.blob);
+    if (!navigator.onLine) { for (const i of items) if (!i.error) set(i.id, { state: 'waiting', progress: 0 }); return 0; }
+    for (const item of items) {
+      if (item.error) { set(item.id, { state: 'failed', error: item.error }); continue; }
+      set(item.id, { state: 'uploading', progress: 0 });
       try {
-        await uploadRecording(item.blob, item.meta);
+        await uploadRecording(item.blob, item.meta, p => set(item.id, { state: 'uploading', progress: p }));
         await removePending(item.id);
+        done(item.id);
         ok++;
       } catch (err) {
-        if (err.status && err.status !== 0 && err.status < 500 && err.status !== 401) {
-          // The server rejected it for good (e.g. bad file). Keep it but mark it.
+        if (err.status && err.status < 500 && err.status !== 401 && err.status !== 408 && err.status !== 429) {
+          // The server rejected it for good (e.g. a damaged file). Keep it on the phone, marked.
           await savePending({ ...item, error: err.message });
+          set(item.id, { state: 'failed', error: err.message });
+        } else {
+          set(item.id, { state: 'waiting', progress: 0 });
         }
       }
     }
   } finally { flushing = false; }
   return ok;
+}
+
+/** Keep trying in the background: when the app comes back, when the connection returns, and every minute. */
+let started = false;
+export function startUploader(onUploaded) {
+  if (started) return;
+  started = true;
+  const run = () => flushPending().then(n => { if (n) onUploaded?.(n); }).catch(() => {});
+  run();
+  window.addEventListener('online', run);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') run(); });
+  setInterval(async () => {
+    if (document.visibilityState !== 'visible') return;
+    if ((await listPending().catch(() => [])).some(i => !i.draft && i.blob && !i.error)) run();
+  }, 60e3);
 }
