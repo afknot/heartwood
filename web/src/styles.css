@@ -777,3 +777,6 @@ fieldset.field legend { font-size: 13px; font-weight: 600; color: var(--ink-2); 
 /* While the keyboard is open on a phone, the tab bar steps aside (it can't sit on the keyboard reliably on iOS) */
 html.kb-open .tabbar { display: none; }
 html.kb-open .app.has-dock { --tabbar-h: 0px; }
+
+/* People only mentioned in a note */
+.mentioned-chips { margin-top: 6px; align-items: center; }

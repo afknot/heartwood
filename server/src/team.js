@@ -150,8 +150,8 @@ export function teamWeek({ agendaFn }) {
   // Time together: notes about them, and conversations that have happened (this week, and the last one ever).
   const seen = new Map(), last = new Map();
   const mark = (map, id, at, how) => { const prev = map.get(id); if (!prev || at > prev.at) map.set(id, { at, how }); };
-  for (const r of db.prepare(`SELECT ep.person_id, MAX(e.created_at) AS at FROM entry_people ep JOIN entries e ON e.id = ep.entry_id GROUP BY ep.person_id`).all()) mark(last, r.person_id, r.at, 'note');
-  for (const r of db.prepare(`SELECT ep.person_id, e.created_at, e.kind FROM entry_people ep JOIN entries e ON e.id = ep.entry_id WHERE e.created_at >= ?`).all(from.toISOString())) {
+  for (const r of db.prepare(`SELECT ep.person_id, MAX(e.created_at) AS at FROM entry_people ep JOIN entries e ON e.id = ep.entry_id WHERE ep.role = 'with' GROUP BY ep.person_id`).all()) mark(last, r.person_id, r.at, 'note');
+  for (const r of db.prepare(`SELECT ep.person_id, e.created_at, e.kind FROM entry_people ep JOIN entries e ON e.id = ep.entry_id WHERE ep.role = 'with' AND e.created_at >= ?`).all(from.toISOString())) {
     mark(seen, r.person_id, r.created_at, ['one_on_one', 'conversation', 'meeting'].includes(r.kind) ? 'conversation' : 'note');
   }
   const todayTalks = [];
@@ -191,7 +191,7 @@ export function teamWeek({ agendaFn }) {
   // today) without a read yet today.
   const readToday = id => { const r = latestRead.get(id); return r && local(new Date(r.at)).ymd === ymd; };
   const ask = [];
-  for (const r of db.prepare(`SELECT ep.person_id, e.title, e.created_at FROM entry_people ep JOIN entries e ON e.id = ep.entry_id WHERE e.kind IN ('one_on_one', 'conversation') AND e.created_at >= ?`).all(startOfLocalDay(ymd).toISOString())) {
+  for (const r of db.prepare(`SELECT ep.person_id, e.title, e.created_at FROM entry_people ep JOIN entries e ON e.id = ep.entry_id WHERE ep.role = 'with' AND e.kind IN ('one_on_one', 'conversation') AND e.created_at >= ?`).all(startOfLocalDay(ymd).toISOString())) {
     todayTalks.push({ title: r.title || '1:1', start: r.created_at, people: [{ id: r.person_id }] });
   }
   for (const ev of todayTalks) {

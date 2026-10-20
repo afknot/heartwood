@@ -83,7 +83,7 @@ export function MeetingSheet({ uid, ev, onClose, onChanged, onPrep }) {
         {ev && chosen.length > 0 && <>
           <button className="btn primary block" onClick={() => { onClose(); onPrep({ ...ev, people: chosen }); }}><Icon name="sparkle" size={18} /> {ev.prep ? 'Open prep' : 'Prep'}</button>
           <div className="row" style={{ gap: 8, marginTop: 8 }}>
-            <Link className="btn rec" style={{ flex: 1 }} to={`/record?kind=${kind}&person=${ids.join(',')}`}><Icon name="mic" size={18} /> Record</Link>
+            <Link className="btn rec" style={{ flex: 1 }} to={`/record?kind=${kind}&person=${ids.join(',')}${kind === 'meeting' && (m?.title || ev?.title || '') ? `&title=${encodeURIComponent((m?.title || ev?.title || ''))}` : ''}`}><Icon name="mic" size={18} /> Record</Link>
             <button className="btn" style={{ flex: 1 }} onClick={writeNote}><Icon name="note" size={18} /> Write notes</button>
           </div>
         </>}

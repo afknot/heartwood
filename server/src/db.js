@@ -397,6 +397,12 @@ const MIGRATIONS = [
         at TEXT NOT NULL
       );
     `);
+  },
+  // 21: who an entry is WITH (you met them, or it's about them) vs who's only MENTIONED in it.
+  // Only "with" counts as time together on Team and Today, and asks "How did they seem?".
+  () => {
+    const cols = db.prepare(`PRAGMA table_info(entry_people)`).all().map(c => c.name);
+    if (!cols.includes('role')) db.exec(`ALTER TABLE entry_people ADD COLUMN role TEXT NOT NULL DEFAULT 'with'`);
   }
 ];
 {
@@ -441,8 +447,8 @@ export function hydrateEntry(row, { withPeople = true } = {}) {
   e.has_audio = !!row.audio_file;
   delete e.audio_file;
   if (withPeople) {
-    e.people = db.prepare(`SELECT p.id, p.name, p.role, p.relationship FROM people p
-      JOIN entry_people ep ON ep.person_id = p.id WHERE ep.entry_id = ? ORDER BY p.name`).all(row.id);
+    e.people = db.prepare(`SELECT p.id, p.name, p.role, p.relationship, ep.role AS link FROM people p
+      JOIN entry_people ep ON ep.person_id = p.id WHERE ep.entry_id = ? ORDER BY ep.role = 'mentioned', p.name`).all(row.id);
     e.files = db.prepare(`SELECT id, name, mime, size, kind, note, status, error, split_count, split_done,
       (stored IS NOT NULL) AS has_file, extracted_text FROM entry_files WHERE entry_id = ? ORDER BY created_at, name`).all(row.id)
       .map(f => ({ ...f, has_file: !!f.has_file, split_done: !!f.split_done }));
@@ -454,11 +460,19 @@ export function getEntryRow(id) {
   return db.prepare('SELECT * FROM entries WHERE id = ?').get(id);
 }
 
-export function setEntryPeople(entryId, personIds) {
+/**
+ * Set who an entry involves. People already linked keep their role ("with" or "mentioned"); new ones
+ * get `role` ('with' by default). `mentioned` lists ids to mark as only mentioned.
+ */
+export function setEntryPeople(entryId, personIds, { role = 'with', mentioned = null } = {}) {
   const tx = db.transaction(() => {
+    const prev = Object.fromEntries(db.prepare('SELECT person_id, role FROM entry_people WHERE entry_id = ?').all(entryId).map(r => [r.person_id, r.role]));
     db.prepare('DELETE FROM entry_people WHERE entry_id = ?').run(entryId);
-    const ins = db.prepare('INSERT OR IGNORE INTO entry_people(entry_id, person_id) VALUES (?, ?)');
-    for (const pid of personIds || []) ins.run(entryId, pid);
+    const ins = db.prepare('INSERT OR IGNORE INTO entry_people(entry_id, person_id, role) VALUES (?, ?, ?)');
+    for (const pid of personIds || []) {
+      const r = Array.isArray(mentioned) ? (mentioned.includes(pid) ? 'mentioned' : 'with') : prev[pid] || role;
+      ins.run(entryId, pid, r);
+    }
   });
   tx();
 }
@@ -467,7 +481,7 @@ export function setEntryPeople(entryId, personIds) {
 export function linkMentions(entryId, md) {
   const ids = [...new Set([...String(md || '').matchAll(/\]\(\/people\/([0-9a-f-]{36})\)/g)].map(m => m[1]))];
   if (!ids.length) return;
-  const ins = db.prepare('INSERT OR IGNORE INTO entry_people(entry_id, person_id) SELECT ?, id FROM people WHERE id = ?');
+  const ins = db.prepare(`INSERT OR IGNORE INTO entry_people(entry_id, person_id, role) SELECT ?, id, 'mentioned' FROM people WHERE id = ?`);
   db.transaction(() => { for (const pid of ids) ins.run(entryId, pid); })();
 }
 
@@ -497,7 +511,7 @@ export function safeJson(s, fallback) {
 
 export function listPeople() {
   return db.prepare(`SELECT p.*, (SELECT COUNT(*) FROM entry_people ep WHERE ep.person_id = p.id) AS entry_count,
-    (SELECT MAX(e.created_at) FROM entries e JOIN entry_people ep ON ep.entry_id = e.id WHERE ep.person_id = p.id) AS last_entry_at
+    (SELECT MAX(e.created_at) FROM entries e JOIN entry_people ep ON ep.entry_id = e.id WHERE ep.person_id = p.id AND ep.role = 'with') AS last_entry_at
     FROM people p ORDER BY p.name COLLATE NOCASE`).all();
 }
 

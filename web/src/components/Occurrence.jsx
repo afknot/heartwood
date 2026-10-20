@@ -76,7 +76,7 @@ export function OccurrenceSheet({ occ, onClose, onChanged, onPrep }) {
           <Icon name="sparkle" size={18} /> {occ.prep ? 'Open prep' : 'Prep'}
         </button>
         <div className="row" style={{ gap: 8, marginTop: 8 }}>
-          <Link className="btn rec" style={{ flex: 1 }} to={`/record?kind=${kind}&person=${ids.join(',')}`}><Icon name="mic" size={18} /> Record</Link>
+          <Link className="btn rec" style={{ flex: 1 }} to={`/record?kind=${kind}&person=${ids.join(',')}${kind === 'meeting' && (occ.display_title || occ.title || '') ? `&title=${encodeURIComponent((occ.display_title || occ.title || ''))}` : ''}`}><Icon name="mic" size={18} /> Record</Link>
           <button className="btn" style={{ flex: 1 }} onClick={writeNote}><Icon name="note" size={18} /> Write notes</button>
         </div>
         <div className="row" style={{ gap: 8, marginTop: 8 }}>

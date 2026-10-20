@@ -24,6 +24,7 @@ import { ai } from './routes/ai.js';
 import { settings } from './routes/settings.js';
 import { career } from './routes/career.js';
 import { resumeJobs } from './jobs.js';
+import { backfillRoles } from './roles.js';
 import { AIError } from './llm.js';
 
 if (!passwordConfigured()) console.warn('⚠️  No password set — add APP_PASSWORD to .env so you can sign in.');
@@ -130,6 +131,8 @@ startCalendarSync();
 startInviteChecks();
 startNotifications();
 startSnapshots();
+// Tell who you were with from who was only mentioned, for older 1:1 recordings (runs once).
+setTimeout(() => { try { const r = backfillRoles(); if (r.fixed || r.renamed) console.log(`[roles] mentioned-only people in ${r.fixed} recordings; renamed ${r.renamed}`); } catch (err) { console.error('[roles]', err.message); } }, 5000);
 
 const server = app.listen(config.port, () => console.log(`Heartwood listening on :${config.port}`));
 // A long recording over a slow phone connection can take more than Node's default 5 minutes to upload;

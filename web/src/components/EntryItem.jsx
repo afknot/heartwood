@@ -21,7 +21,7 @@ export default function EntryItem({ e }) {
         <span>{KINDS[e.kind]}</span>
         <span className="dot">{time}</span>
         {e.audio_seconds ? <span className="dot">{duration(e.audio_seconds)}</span> : null}
-        {e.people?.length > 0 && <span className="dot">{e.people.map(p => p.name.split(' ')[0]).join(', ')}</span>}
+        {e.people?.some(p => p.link !== 'mentioned') && <span className="dot">{e.people.filter(p => p.link !== 'mentioned').map(p => p.name.split(' ')[0]).join(', ')}</span>}
         <StatusBadge status={e.status} />
       </div>
     </Link>

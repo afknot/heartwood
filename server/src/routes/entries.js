@@ -116,7 +116,7 @@ entries.patch('/:id', (req, res) => {
     created_at: b.created_at && !isNaN(Date.parse(b.created_at)) ? new Date(b.created_at).toISOString() : undefined,
     error: b.clear_error ? null : undefined
   });
-  if (Array.isArray(b.people)) setEntryPeople(row.id, b.people);
+  if (Array.isArray(b.people)) setEntryPeople(row.id, b.people, Array.isArray(b.mentioned) ? { mentioned: b.mentioned.map(String) } : {});
   if (typeof b.body_md === 'string') linkMentions(row.id, b.body_md);
   res.json(hydrateEntry(getEntryRow(row.id)));
 });

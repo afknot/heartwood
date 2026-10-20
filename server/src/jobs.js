@@ -73,12 +73,19 @@ export function applyOrganization(id, analysis, people) {
   const row = getEntryRow(id);
   const entry = hydrateEntry(row);
   const fields = {};
-  if (!entry.title.trim() && analysis.title) fields.title = analysis.title;
+  // A conversation with one person is named after them ("1:1 with Maya"); the summary carries the topics.
+  const withPeople = entry.people.filter(p => p.link !== 'mentioned');
+  const KIND_NAME = { one_on_one: '1:1', conversation: 'Conversation' };
+  if (!entry.title.trim() && withPeople.length === 1 && KIND_NAME[entry.kind]) fields.title = `${KIND_NAME[entry.kind]} with ${withPeople[0].name.split(' ')[0]}`;
+  else if (!entry.title.trim() && analysis.title) fields.title = analysis.title;
   const tags = [...new Set([...entry.tags, ...analysis.tags])];
   if (tags.length !== entry.tags.length) fields.tags = tags;
   updateEntry(id, fields);
 
+  // People Heartwood finds in the conversation are only "mentioned": who you were with is your call
+  // (picked when you recorded, or on the note). Exception: a 1:1 recorded without picking anyone.
   const linked = new Set(entry.people.map(p => p.id));
+  const found = [];
   for (const name of analysis.people) {
     const n = name.toLowerCase().trim();
     let match = people.find(p => p.name.toLowerCase() === n);
@@ -86,9 +93,12 @@ export function applyOrganization(id, analysis, people) {
       const byFirst = people.filter(p => p.name.toLowerCase().split(/\s+/)[0] === n.split(/\s+/)[0]);
       if (byFirst.length === 1) match = byFirst[0];
     }
-    if (match) linked.add(match.id);
+    if (match && !linked.has(match.id)) { linked.add(match.id); found.push(match.id); }
   }
-  if (linked.size !== entry.people.length) setEntryPeople(id, [...linked]);
+  if (!found.length) return;
+  const solo = !withPeople.length && entry.kind === 'one_on_one' && found.length === 1;
+  const mentioned = [...entry.people.filter(p => p.link === 'mentioned').map(p => p.id), ...(solo ? [] : found)];
+  setEntryPeople(id, [...linked], { mentioned });
 }
 
 export async function processRecording(id) {

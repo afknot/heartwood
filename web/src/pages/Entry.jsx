@@ -25,6 +25,7 @@ export default function Entry() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [sheet, setSheet] = useState(null); // 'people' | 'tags' | 'more'
+  const [personMenu, setPersonMenu] = useState(null);
   const [allTags, setAllTags] = useState([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [saveState, setSaveState] = useState('');
@@ -164,7 +165,11 @@ export default function Entry() {
   }
 
   if (!entry) return <main className="page no-tabs" />;
-  const people = entry.people || [];
+  const allPeople = entry.people || [];
+  const people = allPeople.filter(p => p.link !== 'mentioned'); // who it's with (or about)
+  const mentioned = allPeople.filter(p => p.link === 'mentioned');
+  const setRole = (pid, role) => patchNow({ people: allPeople.map(p => p.id).filter(x => role !== 'remove' || x !== pid),
+    mentioned: allPeople.filter(p => (p.id === pid ? role === 'mentioned' : p.link === 'mentioned')).map(p => p.id) });
 
   return (
     <main className="page no-tabs">
@@ -186,14 +191,28 @@ export default function Entry() {
         <span className="small muted">{formatDate(entry.created_at, { time: true })} · {KINDS[entry.kind]}</span>
       </div>
       <div className="chips">
-        {people.map(p => <button key={p.id} className="chip accent" onClick={() => setSheet('people')}>{p.name}</button>)}
-        <button className="chip" onClick={() => setSheet('people')}><Icon name="people" size={14} /> {people.length ? 'Edit' : 'People'}</button>
+        {people.map(p => <button key={p.id} className="chip accent" onClick={() => setPersonMenu(p)}>{p.name}</button>)}
+        <button className="chip" onClick={() => setSheet('people')}><Icon name="people" size={14} /> {allPeople.length ? 'Edit' : 'People'}</button>
         {entry.tags.map(t => <button key={t} className="chip" onClick={() => setSheet('tags')}>#{t}</button>)}
         {entry.tags.length
           ? <button className="chip" onClick={() => setSheet('tags')} aria-label="Edit tags"><Icon name="plus" size={14} /></button>
           : <button className="chip" onClick={() => setSheet('tags')}># Tags</button>}
       </div>
+      {mentioned.length > 0 && (
+        <div className="chips mentioned-chips" aria-label="Also mentioned">
+          <span className="small muted">Also mentioned:</span>
+          {mentioned.map(p => <button key={p.id} className="chip small-chip" onClick={() => setPersonMenu(p)}>{p.name.split(' ')[0]}</button>)}
+        </div>
+      )}
       <SuggestedPeople entry={entry} onLinked={ids => patchNow({ people: ids })} />
+      <Sheet open={!!personMenu} onClose={() => setPersonMenu(null)} title={personMenu?.name || ''}>
+        {personMenu && <div className="stack" style={{ gap: 8 }}>
+          <p className="small muted" style={{ marginTop: -8 }}>People in the conversation count as time together on Team and Today. People only mentioned are still linked, so it shows up on their page.</p>
+          <button className={`btn block${personMenu.link !== 'mentioned' ? ' primary' : ''}`} onClick={() => { setRole(personMenu.id, 'with'); setPersonMenu(null); }}>{KINDS[entry.kind] === 'Note' || entry.kind === 'memo' ? 'It’s about them' : 'They were in it'}</button>
+          <button className={`btn block${personMenu.link === 'mentioned' ? ' primary' : ''}`} onClick={() => { setRole(personMenu.id, 'mentioned'); setPersonMenu(null); }}>Only mentioned</button>
+          <button className="btn ghost block" onClick={() => { setRole(personMenu.id, 'remove'); setPersonMenu(null); }}>Unlink</button>
+        </div>}
+      </Sheet>
 
       {entry.error && (
         <div className="banner error mt">
@@ -251,7 +270,7 @@ export default function Entry() {
 
       <AnalysisPanel entry={entry} onRun={runAnalysis} onAddTodos={addTodos} busy={analyzing} />
 
-      <PeoplePicker open={sheet === 'people'} onClose={() => setSheet(null)} selected={people.map(p => p.id)}
+      <PeoplePicker open={sheet === 'people'} onClose={() => setSheet(null)} selected={allPeople.map(p => p.id)}
         onChange={ids => patchNow({ people: ids })} />
       <TagEditor open={sheet === 'tags'} onClose={() => setSheet(null)} tags={entry.tags} suggestions={allTags}
         onChange={tags => patchNow({ tags })} />
