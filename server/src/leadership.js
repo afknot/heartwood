@@ -65,7 +65,15 @@ export const QUOTES = [
   { text: 'And what else?', who: 'Michael Bungay Stanier', work: 'The Coaching Habit', styles: ['coach'], url: 'https://news.stthomas.edu/seven-questions-that-will-change-the-way-you-lead' },
   { text: 'What’s the real challenge here for you?', who: 'Michael Bungay Stanier', work: 'The Coaching Habit', styles: ['coach', 'mediator'], url: 'https://news.stthomas.edu/seven-questions-that-will-change-the-way-you-lead' },
   { text: 'It should be regarded as the subordinate’s meeting, with its agenda and tone set by him.', who: 'Andy Grove', work: 'High Output Management, on one-on-ones', styles: ['servant', 'space', 'coach'], url: 'https://getlighthouse.com/blog/high-output-management' },
-  { text: 'Only a true natural servant automatically responds to any problem by listening first.', who: 'Robert K. Greenleaf', work: 'The Servant as Leader (1970)', styles: ['servant', 'mediator'], url: '' }
+  { text: 'Only a true natural servant automatically responds to any problem by listening first.', who: 'Robert K. Greenleaf', work: 'The Servant as Leader (1970)', styles: ['servant', 'mediator'], url: '' },
+  // Star Trek: single lines, attributed to the character and episode.
+  { text: 'It is possible to commit no mistakes and still lose. That is not a weakness; that is life.', who: 'Captain Picard', work: 'Star Trek: The Next Generation, “Peak Performance”', styles: ['coach', 'empathetic'], url: 'https://comicbook.com/tv-shows/list/the-10-best-picard-quotes-from-star-trek-the-next-generation/' },
+  { text: 'There are times, sir, when men of good conscience cannot blindly follow orders.', who: 'Captain Picard', work: 'Star Trek: The Next Generation, “The Offspring”', styles: ['servant', 'candid'], url: 'https://comicbook.com/tv-shows/list/the-10-best-picard-quotes-from-star-trek-the-next-generation/' },
+  { text: 'The first duty of every Starfleet officer is to the truth.', who: 'Captain Picard', work: 'Star Trek: The Next Generation, “The First Duty”', styles: ['candid'], url: 'https://comicbook.com/tv-shows/list/the-10-best-picard-quotes-from-star-trek-the-next-generation/' },
+  { text: 'Live now; make now always the most precious time. Now will never come again.', who: 'Captain Picard', work: 'Star Trek: The Next Generation, “The Inner Light”', styles: ['empathetic'], url: 'https://comicbook.com/tv-shows/list/the-10-best-picard-quotes-from-star-trek-the-next-generation/' },
+  { text: 'Risk is our business.', who: 'Captain Kirk', work: 'Star Trek, “Return to Tomorrow”', styles: ['visionary', 'space'], url: 'https://www.startrek.com/news/captain-kirks-wisest-quotes' },
+  { text: 'Leave any bigotry in your quarters, there’s no room for it on the bridge.', who: 'Captain Kirk', work: 'Star Trek, “Balance of Terror”', styles: ['candid', 'servant'], url: 'https://www.startrek.com/news/captain-kirks-wisest-quotes' },
+  { text: 'Insufficient facts always invite danger.', who: 'Mr. Spock', work: 'Star Trek, “Space Seed”', styles: ['mediator', 'coach'], url: 'https://www.consultclarity.org/post/star-trek-leadership-quotes' }
 ];
 
 const hash = s => { let h = 2166136261; for (const c of s) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };

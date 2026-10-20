@@ -22,6 +22,8 @@ const CHAPMAN = 'Bob Chapman, Everybody Matters';
 const NVC = 'Marshall Rosenberg, Nonviolent Communication';
 const MEDIATION = 'interest-based conflict resolution';
 const GROVE = 'Andy Grove, High Output Management';
+const TNG = ep => `Star Trek: The Next Generation, “${ep}”`;
+const TOS = ep => `Star Trek, “${ep}”`;
 
 // fit: when it suits the day. talk = needs a conversation today; busy = a full day; any = always.
 export const PRACTICES = [
@@ -172,7 +174,27 @@ export const PRACTICES = [
   { id: 'say-it-soon', fit: 'any', styles: ['candid'], source: SCOTT, title: 'Give the feedback you’ve been holding',
     how: 'Is there feedback you’ve been sitting on? Give it today, in person, briefly: what you saw, why it matters and a suggested next step.' },
   { id: 'why-it-matters', fit: 'talk', styles: ['visionary'], source: NETFLIX, title: 'Connect their work to the why',
-    how: 'In one conversation, tell someone how their work connects to where the team is going, and ask how they see it.' }
+    how: 'In one conversation, tell someone how their work connects to where the team is going, and ask how they see it.' },
+
+  // From the bridge of the Enterprise
+  { id: 'brief-then-decide', fit: 'any', styles: ['space', 'coach'], source: TNG('the senior staff briefings'), title: 'Brief, then decide',
+    how: 'Before a big call, ask two or three people for their read and their recommendation, the way a captain gathers the senior staff. Then decide, and say why.' },
+  { id: 'make-it-so', fit: 'any', styles: ['space'], source: TNG('Encounter at Farpoint'), title: 'Make it so',
+    how: 'Once a decision is made, hand the how to the person running it, and stay out of it. Ask to hear when it’s done, or if something changes.' },
+  { id: 'away-team', fit: 'talk', styles: ['space', 'servant'], source: TNG('the away missions'), title: 'Send the away team',
+    how: 'Let someone on your team lead a meeting or a visit you’d normally lead. Brief them, then let them speak for the team, and back them up afterwards.' },
+  { id: 'no-mistakes-still-lose', fit: 'any', styles: ['coach', 'empathetic'], source: TNG('Peak Performance'), title: 'Say it out loud: the call was right',
+    how: 'When something someone owned didn’t work out, separate the decision from the result. If they made a good call with what they knew, tell them so.' },
+  { id: 'first-duty', fit: 'any', styles: ['candid'], source: TNG('The First Duty'), title: 'Tell the whole story',
+    how: 'In an update today, include the part that didn’t go well, plainly. Teams copy what their leader does with bad news.' },
+  { id: 'bridge-norms', fit: 'any', styles: ['candid', 'servant'], source: TOS('Balance of Terror'), title: 'Hold the line on how we treat each other',
+    how: 'If you see someone dismissed, talked over or stereotyped, say so right then, calmly, in the room. Norms are set by what the leader lets pass.' },
+  { id: 'counselor', fit: 'talk', styles: ['empathetic', 'mediator'], source: TNG('Counselor Troi on the bridge'), title: 'Ask how it feels, not just what they think',
+    how: 'After you share a decision, ask one person how it lands for them. The reaction under the logic is often where the real concern is.' },
+  { id: 'more-facts', fit: 'any', styles: ['mediator', 'coach'], source: TOS('Space Seed'), title: 'Get one more fact first',
+    how: 'Before you react to a report of a problem today, ask one more question or check one more source. First accounts are rarely the whole picture.' },
+  { id: 'no-drumhead', fit: 'any', styles: ['mediator', 'servant'], source: TNG('The Drumhead'), title: 'Look for the cause, not a culprit',
+    how: 'When something goes wrong, ask what in the process let it happen before asking who did it. Fear of blame hides the next problem.' }
 ];
 const BY_ID = Object.fromEntries(PRACTICES.map(p => [p.id, p]));
 
