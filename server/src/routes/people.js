@@ -7,7 +7,7 @@ import { config, tmpDir } from '../config.js';
 import { makeAvatar } from '../files.js';
 
 export const people = express.Router();
-const RELS = ['', 'direct_report', 'peer', 'manager', 'stakeholder', 'other']; // '' = not set
+const RELS = ['', 'direct_report', 'peer', 'manager', 'mentor', 'mentee', 'stakeholder', 'other']; // '' = not set
 const avatarDir = path.join(config.dataDir, 'avatars');
 fs.mkdirSync(avatarDir, { recursive: true });
 const photoUpload = multer({ dest: tmpDir, limits: { fileSize: 25 * 1024 * 1024 } });

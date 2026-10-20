@@ -13,6 +13,8 @@ export const RELATIONSHIPS = {
   direct_report: 'Direct report',
   peer: 'Peer',
   manager: 'Manager',
+  mentor: 'Mentor',
+  mentee: 'Mentee',
   stakeholder: 'Stakeholder',
   other: 'Other'
 };

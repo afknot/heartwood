@@ -8,7 +8,7 @@ import { listSchedules } from './schedules.js';
 import { meetingSeries } from './calendar.js';
 import { askPrompt, entryText } from './prompts.js';
 
-const REL = { direct_report: 'direct report', peer: 'peer', manager: 'manager', stakeholder: 'stakeholder', other: 'other' };
+const REL = { direct_report: 'direct report', peer: 'peer', manager: 'manager', mentor: 'the writer’s mentor', mentee: 'someone the writer mentors', stakeholder: 'stakeholder', other: 'other' };
 const MAX_ENTRIES = 34;
 const ATTACH_TEXT_NOW = 40000; // per file, on the turn it's attached
 const ATTACH_TEXT_LATER = 8000; // per file, when replaying earlier turns

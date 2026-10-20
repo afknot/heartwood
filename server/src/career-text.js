@@ -2,7 +2,7 @@
 // No database access, so they can be tested on their own.
 const clip = (s, n) => String(s ?? '').trim().slice(0, n);
 
-const ROLE_LABEL = { direct_report: 'someone on my team', peer: 'a peer', manager: 'my manager', stakeholder: 'a stakeholder', other: 'a colleague' };
+const ROLE_LABEL = { direct_report: 'someone on my team', peer: 'a peer', manager: 'my manager', mentor: 'a mentor', mentee: 'someone I mentor', stakeholder: 'a stakeholder', other: 'a colleague' };
 const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** Replace the names of people Heartwood knows with role labels. */

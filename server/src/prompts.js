@@ -8,7 +8,7 @@ const KIND_LABEL = {
 export const kindLabel = k => KIND_LABEL[k] || k;
 
 const REL_LABEL = {
-  direct_report: 'direct report', peer: 'peer', manager: 'my manager', stakeholder: 'stakeholder', other: 'other'
+  direct_report: 'direct report', peer: 'peer', manager: 'my manager', mentor: 'my mentor', mentee: 'someone I mentor', stakeholder: 'stakeholder', other: 'other'
 };
 
 export const COACH_STANCE = `You are a private leadership coach working with one manager through their own journal. You combine the practical judgment of a seasoned people leader with the care of a good executive coach.

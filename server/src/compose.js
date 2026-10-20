@@ -46,7 +46,7 @@ function subjectContext({ kind, id }) {
   const rows = ids.length ? db.prepare(`SELECT DISTINCT e.* FROM entries e JOIN entry_people ep ON ep.entry_id = e.id WHERE ep.person_id IN (${ids.map(() => '?').join(',')}) ORDER BY e.created_at DESC LIMIT 5`).all(...ids) : [];
   const recent = rows.map(r => hydrateEntry(r)).reverse();
   const open = listFollowups({ status: 'open', limit: 500 }).filter(f => f.person_id && ids.includes(f.person_id)).slice(0, 12);
-  const who = recipients.map(p => `${p.name}${p.pronouns ? ` (${p.pronouns})` : ''}${p.role ? `, ${p.role}` : ''}${p.relationship === 'direct_report' ? ', reports to the writer' : p.relationship === 'manager' ? ', the writer’s manager' : p.relationship === 'peer' ? ', a peer' : ''}${p.notes ? `. Writer's notes on them: ${p.notes.slice(0, 600)}` : ''}`).join('\n');
+  const who = recipients.map(p => `${p.name}${p.pronouns ? ` (${p.pronouns})` : ''}${p.role ? `, ${p.role}` : ''}${p.relationship === 'direct_report' ? ', reports to the writer' : p.relationship === 'manager' ? ', the writer’s manager' : p.relationship === 'peer' ? ', a peer' : p.relationship === 'mentor' ? ', the writer’s mentor' : p.relationship === 'mentee' ? ', someone the writer mentors' : ''}${p.notes ? `. Writer's notes on them: ${p.notes.slice(0, 600)}` : ''}`).join('\n');
   const block = [
     recipients.length ? `Writing to:\n${who}` : 'Writing to: (whoever the writer names)',
     about,
@@ -83,7 +83,9 @@ export async function compose({ subject, mode = 'new', channel = 'email', text =
   if (mode === 'reply' && !theirs) throw Object.assign(new Error('Paste the message you’re replying to.'), { status: 400 });
   const { recipients, block, others } = subjectContext(subject || {});
   const profile = getSettings().profile || {};
-  const audience = recipients.length > 2 ? 'team' : recipients[0]?.relationship || '';
+  // Mentees read like someone on your team, mentors like your manager, for matching your voice.
+  const rel = recipients[0]?.relationship || '';
+  const audience = recipients.length > 2 ? 'team' : ({ mentee: 'direct_report', mentor: 'manager' })[rel] || rel;
   const user = [
     block,
     '',

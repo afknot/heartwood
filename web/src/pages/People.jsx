@@ -92,7 +92,7 @@ export default function People() {
     : w.next_this_week ? `Next: ${dayName(w.next_at)}` : w.next_at ? 'Next week' : w.on_rhythm ? 'On rhythm' : 'Not seen in a while');
   const nav = useNavigate();
 
-  const PLURAL = { direct_report: 'Direct reports', peer: 'Peers', manager: 'Managers', stakeholder: 'Stakeholders', other: 'Others' };
+  const PLURAL = { direct_report: 'Direct reports', peer: 'Peers', manager: 'Managers', mentor: 'Mentors', mentee: 'Mentees', stakeholder: 'Stakeholders', other: 'Others' };
   const groups = [...Object.keys(RELATIONSHIPS), '']
     .map(k => ({ k, label: k ? PLURAL[k] : 'Relationship not set', items: people.filter(p => (p.relationship || '') === k) }))
     .filter(g => g.items.length);
