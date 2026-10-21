@@ -24,10 +24,10 @@ const MEDIATION = 'interest-based conflict resolution';
 const GROVE = 'Andy Grove, High Output Management';
 const TNG = ep => `Star Trek: The Next Generation, “${ep}”`;
 const TOS = ep => `Star Trek, “${ep}”`;
-const VOY = ep => `Star Trek: Voyager, “${ep}”`;
 const PARKS = ep => `Parks and Recreation, “${ep}”`;
 const OFFICE = ep => `The Office, “${ep}”`;
 const ROCK = ep => `30 Rock, “${ep}”`;
+const FILM = (t, y) => `${t} (${y})`;
 
 // fit: when it suits the day. talk = needs a conversation today; busy = a full day; any = always.
 export const PRACTICES = [
@@ -203,8 +203,6 @@ export const PRACTICES = [
     how: 'Like Data trying to understand the crew, ask one plain, curious question about something your team treats as obvious. “Why do we do it this way?” often surfaces what nobody has said.' },
   { id: 'number-one', fit: 'any', styles: ['candid', 'servant'], source: TNG('Riker as first officer'), title: 'Disagree in the ready room, back it on the bridge',
     how: 'If you disagree with a decision, say so directly and in private, before it goes out. Once it’s made, support it in front of the team, and ask your own people to do the same with you.' },
-  { id: 'logic-flaw', fit: 'any', styles: ['candid', 'mediator'], source: VOY('Counterpoint'), title: 'Test the argument you like',
-    how: 'When a plan explains itself a little too neatly, ask someone you trust to argue the other side for five minutes. Good reasoning survives it.' },
   { id: 'greater-sum', fit: 'talk', styles: ['mediator'], source: TOS('The Savage Curtain'), title: 'Invite the different view',
     how: 'In a discussion today, find the person who sees it differently and ask them to go first. Treat the difference as the useful part, not the obstacle.' },
   { id: 'whole-ass', fit: 'busy', styles: ['space', 'coach'], source: PARKS('Sweet Sixteen'), title: 'One thing, fully',
@@ -216,7 +214,23 @@ export const PRACTICES = [
   { id: 'lowest-job', fit: 'busy', styles: ['servant'], source: ROCK('The Head and the Hair'), title: 'Spend an hour in their seat',
     how: 'Jack’s executives took one day a year in an entry-level job. Try an hour: sit with someone doing front-line work, do a piece of it, and ask what slows them down.' },
   { id: 'dont-speak-first', fit: 'talk', styles: ['mediator', 'coach'], source: ROCK('Today You Are a Man'), title: 'Let them open',
-    how: 'In a hard or high-stakes conversation, ask an open question and then wait. Hearing their position first tells you what actually matters to them.' }
+    how: 'In a hard or high-stakes conversation, ask an open question and then wait. Hearing their position first tells you what actually matters to them.' },
+  { id: 'work-the-problem', fit: 'any', styles: ['coach', 'mediator'], source: FILM('Apollo 13', 1995), title: 'Work the problem',
+    how: 'When something breaks, get the right people together and put what you actually have on the table before anyone proposes a fix. Keep the room on the problem, not on who caused it.' },
+  { id: 'right-players', fit: 'any', styles: ['visionary', 'servant'], source: FILM('Miracle', 2004), title: 'Pick the right people, not the stars',
+    how: 'For the next staffing call, hire or assignment, ask what the team needs around this person, not just who is strongest on paper.' },
+  { id: 'name-on-front', fit: 'any', styles: ['servant'], source: FILM('Miracle', 2004), title: 'Credit the team first',
+    how: 'When your team’s work gets noticed today, name the people and the group before yourself. Let leadership see the team, not you.' },
+  { id: 'could-vs-should', fit: 'any', styles: ['candid', 'visionary'], source: FILM('Jurassic Park', 1993), title: 'Ask “should we?” before “can we?”',
+    how: 'Before saying yes to a new idea, ask who it affects and what it will cost them. Make room for someone to say it’s a bad idea.' },
+  { id: 'attitude-reflects', fit: 'talk', styles: ['empathetic', 'candid'], source: FILM('Remember the Titans', 2000), title: 'Check your weather before you walk in',
+    how: 'Before your first meeting, notice your own mood. The team picks up your attitude quickly; if you’re frazzled, take a minute or name it.' },
+  { id: 'hard-is-great', fit: 'talk', styles: ['coach'], source: FILM('A League of Their Own', 1992), title: 'Name the hard part',
+    how: 'When someone is struggling with a stretch assignment, don’t make it sound easy. Say that it’s hard, why that’s the point, and what you’ll do to help.' },
+  { id: 'look-around', fit: 'busy', styles: ['empathetic'], source: FILM('Ferris Bueller’s Day Off', 1986), title: 'Stop and look around',
+    how: 'Take ten minutes today to notice what’s going well on your team, and tell one person about it.' },
+  { id: 'time-given', fit: 'busy', styles: ['space'], source: FILM('The Fellowship of the Ring', 2001), title: 'Decide what to do with the time you have',
+    how: 'Look at this week’s calendar and pick one meeting to cancel, shorten or hand off. Use that time for whatever matters most to your people.' }
 ];
 const BY_ID = Object.fromEntries(PRACTICES.map(p => [p.id, p]));
 
