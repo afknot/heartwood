@@ -290,7 +290,7 @@ function whereLine(person, event) {
   return `Where they are: ${[person.city, person.tz && `(${person.tz})`].filter(Boolean).join(' ')}${theirs}\n`;
 }
 
-export function prepPrompt({ person, event, entries, followups, profile, people }) {
+export function prepPrompt({ person, event, entries, followups, profile, people, kudos = { wins: [], say: '' } }) {
   const system = `${COACH_STANCE}
 
 ${profileBlock(profile)}
@@ -306,12 +306,17 @@ Commitments either of you made that are still open. Say who owes what.
 2–4 specific topics, each with one line on why now.
 ## Questions to ask
 3–5 open, human questions tailored to them, not generic.
+## Recognize
+1–2 specific things to thank them for, each with a sentence the writer could say. Lead with the wins listed below that haven't been recognized yet. Skip this section if nothing in the journal earns it; never invent praise.
 ## Watch for
 1–2 things to notice or be careful with (their energy, a sensitive topic, a pattern in how you show up).`;
 
   const user = `Upcoming: ${event ? `"${event.title}" on ${new Date(event.start).toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : 'their next 1:1'}
 Person: ${person.name}${person.pronouns ? ` (pronouns: ${person.pronouns})` : ''}${person.role ? `, ${person.role}` : ''}${person.relationship ? ` (${REL_LABEL[person.relationship] || person.relationship})` : ''}
 ${whereLine(person, event)}Writer's notes about them: ${person.notes || '(none)'}
+
+Wins not yet recognized:
+${kudos.wins?.length ? kudos.wins.map(w => `- ${w.date}: ${w.text}`).join('\n') : '(none on record)'}${kudos.say ? `\nKudos the writer already drafted to say: "${kudos.say}"` : ''}
 
 Open follow-ups involving them:
 ${followups.length ? followups.map(f => `- ${f.text}${f.owner ? ` (owner: ${f.owner})` : ''}${f.due ? `, due ${f.due}` : ''}`).join('\n') : '(none recorded)'}
@@ -531,22 +536,27 @@ ${evidence.map(x => `- ${x.public_ok ? '[public-safe] ' : ''}${x.text}${x.metric
   return { system, messages: [{ role: 'user', content: user }] };
 }
 
-/** Public recognition for someone the writer works with (named on purpose, with their OK). */
+/** Kudos for someone the writer works with, for each place it might go (named on purpose, with their OK). */
 export function recognitionPrompt({ person, win, wins, profile }) {
-  const system = `You help a people leader publicly recognize someone on their team on LinkedIn.
+  const system = `You help a people leader recognize someone they work with: in person, in a direct message, in a team channel, and on LinkedIn.
 
 ${profileBlock(profile)}
 
-Rules:
-- Celebrate the person's work and its impact on the team or the people the work serves. Be specific about what they did.
+Rules for every version:
+- Celebrate the person's work and its impact on the team or the people the work serves. Be specific about what they did and why it mattered.
 - Use only what's given. Never invent results, numbers or details.
-- Nothing confidential or internal (unreleased plans, budgets, internal conflicts, performance ratings, comparisons with colleagues, anything personal).
 - Don't name anyone except the person being recognized.
-- Warm, sincere, plain language. No hype words, hashtags or emoji. Not about the writer.
-- Post: under 120 words, with a natural place to @mention them. Recommendation: 60–120 words in the style of a LinkedIn recommendation, written from the writer's relationship to them.
+- Warm, sincere, plain language. No hype words, hashtags or emoji. Keep the focus on them, not the writer.
+
+The versions:
+- "say": 1–2 sentences the writer could say out loud in their next 1:1. Natural speech, second person ("you").
+- "direct": a private Slack or Teams message to them, 40–90 words, second person. It can mention specifics only the two of them know, but nothing about performance ratings or anyone else.
+- "channel": a shout-out for the team's Slack or Teams channel, 30–80 words, third person, using their full name once. Internal audience, but nothing sensitive: no ratings, comparisons with colleagues or anything personal.
+- "post": a public LinkedIn post, under 120 words, with a natural place to @mention them. Nothing confidential or internal (unreleased plans, budgets, internal conflicts).
+- "recommendation": 60–120 words in the style of a LinkedIn recommendation, written from the writer's relationship to them.
 
 Return JSON only:
-{"post": "...", "recommendation": "...", "notes": "anything the writer should check or ask the person about"}`;
+{"say": "...", "direct": "...", "channel": "...", "post": "...", "recommendation": "...", "notes": "anything the writer should check or ask the person about"}`;
   const user = `Person: ${person.name}${person.pronouns ? ` (pronouns: ${person.pronouns})` : ''}${person.role ? `, ${person.role}` : ''}
 The writer's relationship to them: ${person.relationship === 'direct_report' ? 'their manager' : person.relationship || 'colleague'}
 

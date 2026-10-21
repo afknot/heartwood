@@ -17,6 +17,7 @@ const SECTIONS = [
   { k: 'meetings', icon: 'calendar', title: 'Meetings & calendar', sub: 'Recurring 1:1s, meeting invites, calendar link' },
   { k: 'notifications', icon: 'today', title: 'Notifications', sub: 'Morning summary, before and after meetings, weekly debrief' },
   { k: 'ai', icon: 'sparkle', title: 'AI & transcription', sub: 'Providers, models and what runs automatically' },
+  { k: 'messaging', icon: 'star', title: 'Slack & Teams', sub: 'Send kudos to someone, or to a team channel' },
   { k: 'career', icon: 'career', title: 'Career export', sub: 'Your portfolio repository for stories and resume updates' },
   { k: 'data', icon: 'archive', title: 'Your data & backups', sub: 'Export everything, encrypted backups' },
   { k: 'security', icon: 'key', title: 'Sign-in & security', sub: 'Passkeys, password, sign out' },
@@ -165,6 +166,8 @@ export default function Settings() {
         <AIUsage />
       </>}
 
+      {section === 'messaging' && <MessagingSettings />}
+
       {section === 'career' && <>
         <p className="muted small" style={{ marginTop: -4 }}>Lets Heartwood open pull requests on your portfolio repository with story drafts and resume updates you approve. It never changes your main branch, and your journal never leaves this server.</p>
         <CareerSettings career={s.career || {}} onChange={c => update({ career: { ...s.career, ...c } }, { debounce: true })} />
@@ -253,6 +256,43 @@ function AIUsage() {
       </ul>}
     </div>
   );
+}
+
+/** Slack (as you, with your own token) and a Teams channel webhook, for sending kudos. */
+function MessagingSettings() {
+  const { notify } = useApp();
+  const [c, setC] = useConnections();
+  const [channel, setChannel] = useState(null);
+  if (!c) return null;
+  const current = c.slack_channel?.value || '';
+  async function saveChannel(e) {
+    e.preventDefault();
+    try { setC(await api.put('/connections', { slack_channel: (channel ?? current).trim() })); setChannel(null); notify('Saved'); }
+    catch (err) { notify(err.message); }
+  }
+  return <>
+    <p className="muted small" style={{ marginTop: -4 }}>Kudos drafts get a Send button for each place you set up here. Nothing goes out until you tap Send and confirm. Without these, you can still copy a message, or open it in Teams with the text filled in.</p>
+    <h2 className="section-title">Slack</h2>
+    <div className="card key-list">
+      <KeyField name="slack_token" info={c.slack_token} label="Slack user token" test="slack" onSaved={setC}
+        help="Messages go out as you. In Slack, create an app for your workspace (api.slack.com/apps), add the user token scopes chat:write, im:write and users:read.email, install it, then paste the User OAuth Token (xoxp-…)."
+        link="https://api.slack.com/apps" />
+      <form className="field" onSubmit={saveChannel} style={{ marginTop: 12 }}>
+        <span>Channel for team shout-outs</span>
+        <div className="row" style={{ gap: 8 }}>
+          <input className="input" value={channel ?? current} onChange={e => setChannel(e.target.value)} placeholder="#kudos" autoCapitalize="none" spellCheck="false" />
+          <button className="btn small primary" disabled={channel === null || channel.trim() === current}>Save</button>
+        </div>
+        <small>You need to be a member of it. Their name becomes an @mention when Slack can find their email.</small>
+      </form>
+    </div>
+    <h2 className="section-title">Microsoft Teams</h2>
+    <div className="card key-list">
+      <KeyField name="teams_webhook_url" info={c.teams_webhook_url} label="Teams channel webhook" onSaved={setC}
+        help="In the Teams channel, choose ⋯ → Workflows → “Post to a channel when a webhook request is received”, finish the steps, then paste the link it gives you." />
+      <p className="small muted" style={{ margin: '8px 0 0' }}>Messages to one person open in Teams with the text filled in, using the work email on their page. You press Send there.</p>
+    </div>
+  </>;
 }
 
 function Toggle({ label, hint, checked, onChange }) {

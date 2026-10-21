@@ -237,15 +237,15 @@ export async function createDraft({ kind, angle = '', evidenceIds = [], current 
     if (!what) throw new CareerError('Say what you want to recognize them for.');
     const wins = (latestGrowth(person.id)?.timeline || []).filter(t => t.type === 'win' || t.type === 'milestone').slice(-8).map(t => t.text);
     const { system, messages } = recognitionPrompt({ person, win: what, wins, profile });
-    const d = await complete({ system, messages, json: true, maxTokens: 2000, task: 'career' });
+    const d = await complete({ system, messages, json: true, maxTokens: 3000, task: 'kudos' });
     // Their name stays (that's the point). Everyone else's is replaced.
     const others = listPeople().filter(p => p.id !== person.id);
-    const post = removeNamesFrom(clip(d?.post, 1500), others);
-    const rec = removeNamesFrom(clip(d?.recommendation, 1500), others);
-    const content = { person_id: person.id, person_name: person.name, win: what, post: post.text, recommendation: rec.text, notes: clip(d?.notes, 600) };
+    const parts = Object.fromEntries(['say', 'direct', 'channel', 'post', 'recommendation'].map(k => [k, removeNamesFrom(clip(d?.[k], 1500), others)]));
+    const content = { person_id: person.id, person_name: person.name, win: what, ...Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, v.text])), notes: clip(d?.notes, 600), sent: [] };
+    const all = Object.values(parts);
     const flags = [
-      { level: 'warn', text: `Ask ${person.name.split(' ')[0]} before you post. Some people prefer not to be recognized publicly.` },
-      ...checkText(`${content.post}\n${content.recommendation}`, { replaced: post.replaced + rec.replaced, ambiguous: [...new Set([...post.ambiguous, ...rec.ambiguous])] })
+      { level: 'warn', text: `Ask ${person.name.split(' ')[0]} before you post publicly. Some people prefer to be recognized one-on-one.` },
+      ...checkText(all.map(v => v.text).join('\n'), { replaced: all.reduce((n, v) => n + v.replaced, 0), ambiguous: [...new Set(all.flatMap(v => v.ambiguous))] })
     ];
     return saveDraft({ kind, title: `Kudos for ${person.name}`, content, flags, evidence: [] });
   }

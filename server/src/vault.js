@@ -17,7 +17,10 @@ export const VAULT_FIELDS = {
   invite_email: { env: 'INVITE_EMAIL', label: 'Invite mailbox address', plain: true },
   invite_password: { env: 'INVITE_PASSWORD', label: 'Invite mailbox password', noHint: true },
   invite_imap_host: { env: 'INVITE_IMAP_HOST', label: 'Mail server (IMAP)', plain: true },
-  invite_imap_port: { env: 'INVITE_IMAP_PORT', label: 'IMAP port', plain: true }
+  invite_imap_port: { env: 'INVITE_IMAP_PORT', label: 'IMAP port', plain: true },
+  slack_token: { env: 'SLACK_USER_TOKEN', label: 'Slack user token' },
+  slack_channel: { env: 'SLACK_KUDOS_CHANNEL', label: 'Slack channel for kudos', plain: true },
+  teams_webhook_url: { env: 'TEAMS_WEBHOOK_URL', label: 'Teams channel webhook', noHint: true }
 };
 
 const keyFile = path.join(config.dataDir, '.vault-key');

@@ -11,6 +11,7 @@ import { db, newId, now, hydrateEntry, getSettings } from './db.js';
 import { listFollowups } from './followups.js';
 import { complete } from './llm.js';
 import { COACH_STANCE, profileBlock, entryDigest } from './prompts.js';
+import { pendingWins, recentKudos } from './kudos.js';
 import { chosenStyles } from './leadership.js';
 import { config } from './config.js';
 
@@ -121,6 +122,15 @@ function skeleton(template, person, styles) {
   for (const s of styles) {
     const extra = STYLE_ITEMS[s];
     if (extra && keys.has(extra.section)) items.push({ id: itemId(), section: extra.section, text: extra.text, from: 'style', style: s, private: !!extra.private, done: false });
+  }
+  // Kudos: a win you haven't recognized yet (or the line you drafted), where feedback goes.
+  const kSection = ['feedback', 'progress', 'checkin'].find(k => keys.has(k));
+  if (kSection) {
+    const k = recentKudos(person);
+    const said = (k?.sent || []).some(x => x.to === 'say');
+    const win = pendingWins(person).at(-1);
+    if (k?.say && !said) items.push({ id: itemId(), section: kSection, text: `Kudos: ${clean(k.say, 240)}`, from: 'kudos', kudos_id: k.id, private: true, done: false });
+    else if (win) items.push({ id: itemId(), section: kSection, text: `Kudos: thank ${person.name.split(' ')[0]} for ${clean(win.text, 200).replace(/^[A-Z](?=[a-z])/, c => c.toLowerCase())}`, from: 'kudos', private: true, done: false });
   }
   if (keys.has('loops')) {
     for (const f of listFollowups({ status: 'open', personId: person.id, limit: 8 })) {

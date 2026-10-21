@@ -140,7 +140,7 @@ export default function Person() {
         <Link to={`/add?person=${p.id}`} className="btn small nowrap"><Icon name="clip" size={16} /> Add files</Link>
         <button className="btn small nowrap" onClick={() => setPrepOpen('prep')}><Icon name="sparkle" size={16} /> Prep</button>
         <button className="btn small nowrap" onClick={() => setPrepOpen('agenda')}><Icon name="check" size={16} /> 1:1 agenda</button>
-        <Link to={`/career?recognize=${p.id}#drafts`} className="btn small nowrap" title={`Draft a LinkedIn kudos post for ${p.name.split(' ')[0]}`}><Icon name="star" size={16} /> Kudos</Link>
+        <Link to={`/career?recognize=${p.id}#drafts`} className="btn small nowrap" title={`Kudos for ${p.name.split(' ')[0]}: for your 1:1, Slack or Teams, and LinkedIn`}><Icon name="star" size={16} /> Kudos</Link>
       </div>
 
       <ContextBar subject={{ kind: 'person', id: p.id, label: p.name }} recipients={[p]} showAsk={false} />

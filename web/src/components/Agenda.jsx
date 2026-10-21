@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import Icon from './Icon.jsx';
 
@@ -118,13 +118,20 @@ export function AgendaBuilder({ person, event, onDone }) {
             <ul className="agenda-items">
               {items.map(i => (
                 <li key={i.id} className={`agenda-item${i.done ? ' is-done' : ''}`}>
-                  <input type="checkbox" checked={i.done} onChange={e => change(i.id, { done: e.target.checked })} aria-label={`Covered: ${i.text}`} />
+                  <input type="checkbox" checked={i.done} onChange={e => {
+                    change(i.id, { done: e.target.checked });
+                    // Ticking off a kudos you drafted counts as having said it.
+                    if (e.target.checked && i.from === 'kudos' && i.kudos_id) api.post(`/career/drafts/${i.kudos_id}/given`, { to: 'say' }).catch(() => {});
+                  }} aria-label={`Covered: ${i.text}`} />
                   <div className="grow" style={{ minWidth: 0 }}>
                     <textarea className="agenda-text" rows={1} ref={fit} value={i.text} onChange={e => { fit(e.target); change(i.id, { text: e.target.value }); }} aria-label="Agenda item" />
                     <div className="agenda-meta">
                       {(i.why || i.from === 'followup' || i.from === 'style') && (
                         <span className="small muted">{i.from === 'followup' ? 'Open follow-up' : i.from === 'style' ? 'For your leadership style' : `From your notes: ${i.why}`}</span>
                       )}
+                      {i.from === 'kudos' && (i.kudos_id
+                        ? <Link className="small" to={`/career/drafts/${i.kudos_id}`}>Kudos draft · send it too</Link>
+                        : <Link className="small" to={`/career?recognize=${person.id}&win=${encodeURIComponent(i.text.replace(/^Kudos: /, ""))}#drafts`}>A win worth recognizing · draft kudos</Link>)}
                       <button type="button" className={`agenda-priv${i.private ? ' on' : ''}`} aria-pressed={i.private} onClick={() => change(i.id, { private: !i.private })}
                         title={i.private ? 'Only you see this. Tap to include it when you share.' : 'Included when you share. Tap to keep it to yourself.'}>
                         <Icon name="key" size={12} /> {i.private ? 'Just you' : 'Shared'}

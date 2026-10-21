@@ -20,14 +20,91 @@ function CopyButton({ text, label = 'Copy' }) {
 
 // Opens LinkedIn's post composer with the text filled in. Nothing is posted until you press Post there.
 const linkedInShareUrl = text => `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(text)}`;
+// Opens a Teams chat with them, message filled in. You press Send in Teams.
+const teamsChatUrl = (email, text) => `https://teams.microsoft.com/l/chat/0/0?users=${encodeURIComponent(email)}&message=${encodeURIComponent(text)}`;
 
-function CopyBlock({ label, value, onChange, limit, rows = 4, share = false }) {
+const SENT_LABEL = { say: 'Said it in person', slack_dm: 'Slack message', slack_channel: 'Slack channel', teams_channel: 'Teams channel', teams_dm: 'Teams chat', linkedin: 'LinkedIn post', recommendation: 'LinkedIn recommendation' };
+
+/** A send button that asks once before it sends. */
+function SendButton({ label, confirm, onSend, disabled }) {
+  const [armed, setArmed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (!armed) return undefined; const t = setTimeout(() => setArmed(false), 6000); return () => clearTimeout(t); }, [armed]);
+  if (!armed) return <button className="btn small primary" disabled={disabled || busy} onClick={() => setArmed(true)}>{busy ? <span className="spinner" /> : label}</button>;
+  return (
+    <button className="btn small primary" disabled={busy} onClick={async () => { setBusy(true); try { await onSend(); } finally { setBusy(false); setArmed(false); } }}>
+      {busy ? <span className="spinner" /> : confirm}
+    </button>
+  );
+}
+
+/** Kudos, ready for each place it can go: your 1:1, a message to them, a team channel, LinkedIn. */
+function KudosDraft({ d, c, set, onSent }) {
+  const { notify } = useApp();
+  const k = d.kudos || {};
+  const first = c.person_name?.split(' ')[0] || 'them';
+  const sent = Array.isArray(c.sent) ? c.sent : [];
+  const done = to => sent.some(x => x.to === to);
+  async function send(to, text) {
+    try { const r = await api.post(`/career/drafts/${d.id}/send`, { to, text }); onSent(r.sent); notify(`Sent to ${r.where}`); }
+    catch (e) { notify(e.message); }
+  }
+  const given = to => api.post(`/career/drafts/${d.id}/given`, { to }).then(r => onSent(r.sent)).catch(() => {});
+  const legacy = !c.direct && !c.channel && !c.say;
+  const where = [...new Set(sent.map(x => SENT_LABEL[x.to]).filter(Boolean))];
+  return (
+    <section className="card">
+      <p className="small muted" style={{ marginTop: 0 }}>For {c.person_name}: {c.win}</p>
+      {where.length > 0 && <p className="small" style={{ marginTop: -4 }}><Icon name="check" size={14} /> Given: {where.join(' · ')}</p>}
+      {legacy && <p className="small muted">This kudos was made before Heartwood wrote versions for your 1:1, Slack and Teams. Make a new one from their page to get those.</p>}
+
+      {c.say !== undefined && <>
+        <CopyBlock label="Say it in your 1:1" value={c.say || ''} rows={3} onChange={v => set({ ...c, say: v })} />
+        <div className="row" style={{ marginTop: -8, marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
+          <span className="small muted grow">It’s on your next agenda with {first}, and in your prep.</span>
+          {!done('say') && <button className="btn small" onClick={() => given('say')}>I said it</button>}
+        </div>
+      </>}
+
+      {c.direct !== undefined && <>
+        <CopyBlock label={`Message to ${first}`} value={c.direct || ''} rows={5} onChange={v => set({ ...c, direct: v })} />
+        <div className="row" style={{ marginTop: -8, marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
+          {k.slack
+            ? <SendButton label="Send on Slack" confirm={`Send to ${first} now`} disabled={!k.email || !c.direct?.trim()} onSend={() => send('slack_dm', c.direct)} />
+            : <a className="btn small" href="slack://open" onClick={() => { navigator.clipboard?.writeText(c.direct || '').catch(() => {}); notify('Copied. Paste it into Slack.'); }}>Copy and open Slack</a>}
+          {k.email
+            ? <a className="btn small" href={teamsChatUrl(k.email, c.direct || '')} target="_blank" rel="noreferrer" onClick={() => given('teams_dm')}>Open in Teams</a>
+            : null}
+        </div>
+        {(!k.email) && <p className="small muted" style={{ marginTop: -8 }}>Add {first}’s work email on their page to send this on Slack or open it in Teams.</p>}
+        {!k.slack && <p className="small muted" style={{ marginTop: -8 }}>Connect Slack in Settings → Slack & Teams to send it as you, from here.</p>}
+      </>}
+
+      {c.channel !== undefined && <>
+        <CopyBlock label="Team channel shout-out" value={c.channel || ''} rows={4} onChange={v => set({ ...c, channel: v })} />
+        <div className="row" style={{ marginTop: -8, marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
+          {k.slack && k.slack_channel && <SendButton label={`Post in #${k.slack_channel.replace(/^#/, '')}`} confirm="Post it now" disabled={!c.channel?.trim()} onSend={() => send('slack_channel', c.channel)} />}
+          {k.teams_channel && <SendButton label="Post in Teams channel" confirm="Post it now" disabled={!c.channel?.trim()} onSend={() => send('teams_channel', c.channel)} />}
+          {!(k.slack && k.slack_channel) && !k.teams_channel && <span className="small muted">Set a Slack channel or a Teams channel in Settings → Slack & Teams to post this from here.</span>}
+        </div>
+      </>}
+
+      <CopyBlock label="LinkedIn post" value={c.post || ''} rows={7} share onShare={() => given('linkedin')} onChange={v => set({ ...c, post: v })} />
+      <p className="small muted" style={{ marginTop: -8 }}>Open in LinkedIn starts a new post with this text. Edit it there, type @ and their name to tag {first}, then post when you’re ready.</p>
+      <CopyBlock label="LinkedIn recommendation" value={c.recommendation || ''} rows={7} onChange={v => set({ ...c, recommendation: v })} />
+      <p className="small muted" style={{ marginTop: -8 }}>LinkedIn doesn’t let apps start a recommendation. Copy this, open their profile, choose More → Recommend, and paste.</p>
+      {c.notes && <p className="small muted">{c.notes}</p>}
+    </section>
+  );
+}
+
+function CopyBlock({ label, value, onChange, limit, rows = 4, share = false, onShare }) {
   return (
     <div className="copy-block field">
       <div className="row" style={{ flexWrap: 'wrap' }}><span className="grow" style={{ fontSize: 13, fontWeight: 600 }}>{label}</span>
         {limit && <span className={`small ${value.length > limit ? 'warn-text' : 'muted'}`}>{value.length} / {limit}</span>}
         <CopyButton text={value} />
-        {share && <a className="btn small primary" href={linkedInShareUrl(value)} target="_blank" rel="noreferrer">Open in LinkedIn</a>}
+        {share && <a className="btn small primary" href={linkedInShareUrl(value)} target="_blank" rel="noreferrer" onClick={onShare}>Open in LinkedIn</a>}
       </div>
       <textarea className="textarea" rows={rows} value={value} onChange={e => onChange(e.target.value)} />
     </div>
@@ -54,7 +131,7 @@ export default function CareerDraft() {
 
   async function save() {
     setBusy('save');
-    try { setD(await api.patch(`/career/drafts/${id}`, { content: d.content })); setDirty(false); notify('Saved'); }
+    try { const next = await api.patch(`/career/drafts/${id}`, { content: d.content }); setD({ ...next, kudos: d.kudos }); setDirty(false); notify('Saved'); }
     catch (e) { notify(e.message); }
     finally { setBusy(''); }
   }
@@ -154,16 +231,7 @@ export default function CareerDraft() {
         </section>
       )}
 
-      {d.kind === 'recognition' && (
-        <section className="card">
-          <p className="small muted" style={{ marginTop: 0 }}>For {c.person_name}: {c.win}</p>
-          <CopyBlock label="Kudos post" value={c.post || ''} rows={7} share onChange={v => set({ ...c, post: v })} />
-          <p className="small muted" style={{ marginTop: -8 }}>Open in LinkedIn starts a new post with this text. Edit it there, type @ and their name to tag {c.person_name?.split(' ')[0] || 'them'}, then post when you’re ready.</p>
-          <CopyBlock label="LinkedIn recommendation" value={c.recommendation || ''} rows={7} onChange={v => set({ ...c, recommendation: v })} />
-          <p className="small muted" style={{ marginTop: -8 }}>LinkedIn doesn’t let apps start a recommendation. Copy this, open their profile, choose More → Recommend, and paste.</p>
-          {c.notes && <p className="small muted">{c.notes}</p>}
-        </section>
-      )}
+      {d.kind === 'recognition' && <KudosDraft d={d} c={c} set={set} onSent={sent => setD(x => ({ ...x, content: { ...x.content, sent } }))} />}
 
       <div className="row mt" style={{ flexWrap: 'wrap' }}>
         <button className="btn ghost danger" onClick={remove}><Icon name="trash" size={18} /> Delete draft</button>

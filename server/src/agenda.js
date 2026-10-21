@@ -7,6 +7,7 @@ import { listFollowups } from './followups.js';
 import { complete } from './llm.js';
 import { prepPrompt } from './prompts.js';
 import { contextBlock } from './context.js';
+import { pendingWins, recentKudos } from './kudos.js';
 
 /** Upcoming conversations, soonest first, each with its latest prep (if any). */
 export function agenda({ days = 7, from = null } = {}) {
@@ -40,7 +41,8 @@ function unchangedPrep(person, eventKey) {
   const changed = db.prepare(`SELECT
       EXISTS (SELECT 1 FROM entries e JOIN entry_people ep ON ep.entry_id = e.id WHERE ep.person_id = @p AND (e.created_at > @t OR e.updated_at > @t)) OR
       EXISTS (SELECT 1 FROM followups WHERE person_id = @p AND (created_at > @t OR done_at > @t)) OR
-      EXISTS (SELECT 1 FROM context_notes WHERE subject_kind = 'person' AND subject_id = @p AND at > @t) AS changed`).get({ p: person.id, t: since }).changed;
+      EXISTS (SELECT 1 FROM context_notes WHERE subject_kind = 'person' AND subject_id = @p AND at > @t) OR
+      EXISTS (SELECT 1 FROM career_drafts WHERE kind = 'recognition' AND title LIKE @n AND updated_at > @t) AS changed`).get({ p: person.id, t: since, n: `%${person.name}%` }).changed;
   if (changed) return null;
   return last;
 }
@@ -65,7 +67,9 @@ export async function makePrep({ personId, eventKey = null, reuse = false }) {
   const entries = rows.map(r => hydrateEntry(r)).reverse();
   const followups = listFollowups({ status: 'open', personId: person.id, limit: 30 });
   const s = getSettings();
-  const { system, messages } = prepPrompt({ person, event: ev, entries, followups, profile: s.profile, people: listPeople() });
+  const k = recentKudos(person);
+  const kudos = { wins: pendingWins(person), say: k && !(k.sent || []).some(x => x.to === 'say') ? k.say || '' : '' };
+  const { system, messages } = prepPrompt({ person, event: ev, entries, followups, profile: s.profile, people: listPeople(), kudos });
   const ctx = contextBlock([{ kind: 'person', id: person.id, label: person.name }, ...(ev?.uid ? [{ kind: 'meeting', id: ev.uid, label: `this meeting` }] : [])]);
   if (ctx) messages[0].content += `\n\n${ctx}`;
   const content = await complete({ system, messages, maxTokens: 2500, task: 'prep' });

@@ -5,13 +5,14 @@ import {
   createDraft, updateDraft, exportDraft, draftOut
 } from '../career.js';
 import { CAREER_THEMES } from '../prompts.js';
+import { sendKudos, markGiven, kudosChannels, pendingWins, recentKudos, KudosError } from '../kudos.js';
 
 export const career = express.Router();
 
 const handle = fn => async (req, res, next) => {
   try { await fn(req, res); }
   catch (err) {
-    if (err instanceof CareerError) return res.status(err.message === 'Not found' ? 404 : 400).json({ error: err.message });
+    if (err instanceof CareerError || err instanceof KudosError) return res.status(err.message === 'Not found' ? 404 : 400).json({ error: err.message });
     next(err);
   }
 };
@@ -50,7 +51,13 @@ career.get('/career/drafts', (req, res) => {
 career.get('/career/drafts/:id', (req, res) => {
   const r = db.prepare('SELECT * FROM career_drafts WHERE id = ?').get(req.params.id);
   if (!r) return res.status(404).json({ error: 'Not found' });
-  res.json(draftOut(r));
+  const d = draftOut(r);
+  // Kudos: where it can go, and their email for a Teams chat link.
+  if (r.kind === 'recognition') {
+    const p = d.content?.person_id && db.prepare('SELECT email FROM people WHERE id = ?').get(d.content.person_id);
+    d.kudos = { ...kudosChannels(), email: p?.email || '' };
+  }
+  res.json(d);
 });
 career.post('/career/drafts', handle(async (req, res) => {
   const { kind, angle, evidence_ids: evidenceIds, current, person_id: personId, win } = req.body || {};
@@ -61,6 +68,16 @@ career.post('/career/drafts', handle(async (req, res) => {
   }));
 }));
 career.patch('/career/drafts/:id', handle(async (req, res) => res.json(updateDraft(req.params.id, req.body))));
+// Kudos: send to Slack or a Teams channel (you tapped Send), or note you gave it another way.
+career.post('/career/drafts/:id/send', handle(async (req, res) => res.json(await sendKudos({ draftId: req.params.id, to: String(req.body?.to || ''), text: req.body?.text }))));
+career.post('/career/drafts/:id/given', handle(async (req, res) => res.json(markGiven({ draftId: req.params.id, to: String(req.body?.to || '') }))));
+// What's worth recognizing for someone, and your latest kudos for them (for prep and agendas).
+career.get('/people/:id/kudos', (req, res) => {
+  const p = db.prepare('SELECT * FROM people WHERE id = ?').get(req.params.id);
+  if (!p) return res.status(404).json({ error: 'Not found' });
+  const k = recentKudos(p);
+  res.json({ wins: pendingWins(p), recent: k && { id: k.id, created_at: k.created_at, say: k.say || '', win: k.win || '', sent: k.sent || [] } });
+});
 career.post('/career/drafts/:id/export', handle(async (req, res) => res.json(await exportDraft(req.params.id))));
 career.delete('/career/drafts/:id', (req, res) => {
   db.prepare('DELETE FROM career_drafts WHERE id = ?').run(req.params.id);
