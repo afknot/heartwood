@@ -1,6 +1,7 @@
 // Minimal service worker: caches the app shell so it opens instantly from the
 // home screen. Never caches /api — your journal data always comes fresh from the server.
-const CACHE = 'heartwood-shell-v2';
+const CACHE = 'heartwood-shell-v3';
+const MAX_ASSETS = 80; // old builds' files pile up otherwise; keep the newest
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(['/', '/manifest.webmanifest'])).then(() => self.skipWaiting()));
@@ -27,11 +28,17 @@ self.addEventListener('fetch', e => {
   e.respondWith(caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
     if (res.ok && (url.pathname.startsWith('/assets/') || url.pathname.startsWith('/icons/'))) {
       const copy = res.clone();
-      caches.open(CACHE).then(c => c.put(e.request, copy));
+      caches.open(CACHE).then(c => c.put(e.request, copy).then(() => trim(c)));
     }
     return res;
   })));
 });
+
+// Cache keys come back oldest first; drop the oldest assets past the limit.
+async function trim(cache) {
+  const assets = (await cache.keys()).filter(r => new URL(r.url).pathname.startsWith('/assets/'));
+  await Promise.all(assets.slice(0, Math.max(0, assets.length - MAX_ASSETS)).map(r => cache.delete(r)));
+}
 
 // ---------- notifications from your server ----------
 self.addEventListener('push', e => {

@@ -8,6 +8,7 @@ import { vaultStatus, vaultSet, VAULT_FIELDS } from '../vault.js';
 import { checkInbox } from '../invites.js';
 import { backupInfo, requestBackup, setupBackups, startDrive, finishDrive, BackupError } from '../backups.js';
 import { kindLabel, plainMentions } from '../prompts.js';
+import { usageSummary } from '../llm.js';
 
 export const settings = express.Router();
 
@@ -58,6 +59,11 @@ settings.post('/backups/run', backupRoute(() => { requestBackup(); }));
 settings.post('/backups/setup', backupRoute(b => setupBackups({ passphrase: b.passphrase, destination: b.destination })));
 settings.post('/backups/drive/start', backupRoute(() => { startDrive(); }));
 settings.post('/backups/drive/finish', backupRoute(b => { finishDrive(b.url); }));
+// AI calls and tokens over the last 30 days (or ?days=N, up to a year).
+settings.get('/ai/usage', (req, res) => {
+  const days = Math.min(365, Math.max(1, Number(req.query.days) || 30));
+  res.json(usageSummary({ since: new Date(Date.now() - days * 864e5).toISOString() }));
+});
 settings.get('/settings', (req, res) => res.json({ settings: getSettings(), available: availableProviders(), backups: backupInfo() }));
 
 settings.put('/settings', (req, res) => {

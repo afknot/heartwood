@@ -38,7 +38,7 @@ export async function extractEvidence({ fromIso, toIso }) {
   const known = new Set(entries.map(e => e.id));
   const existing = db.prepare("SELECT text FROM evidence WHERE status != 'dismissed' ORDER BY created_at DESC LIMIT 300").all().map(r => r.text);
   const { system, messages } = evidencePrompt({ entries, profile: getSettings().profile, existing });
-  const out = await complete({ system, messages, json: true, maxTokens: 6000 });
+  const out = await complete({ system, messages, json: true, maxTokens: 6000, task: 'career' });
   const seen = new Set(existing.map(t => t.toLowerCase()));
   const ins = db.prepare(`INSERT INTO evidence(id, kind, text, detail, theme, date, metric, status, entry_ids, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, 'suggested', ?, ?, ?)`);
@@ -70,7 +70,7 @@ export async function combineEvidence() {
   if (items.length < 3) throw new CareerError('There aren’t enough new suggestions to combine.');
   const kept = db.prepare("SELECT text FROM evidence WHERE status = 'confirmed' ORDER BY created_at DESC LIMIT 200").all().map(r => r.text);
   const { system, messages } = evidenceCombinePrompt({ items: items.slice(0, 150), profile: getSettings().profile, kept });
-  const out = await complete({ system, messages, json: true, maxTokens: 6000 });
+  const out = await complete({ system, messages, json: true, maxTokens: 6000, task: 'career' });
   const byId = Object.fromEntries(items.map(i => [i.id, i]));
   const ins = db.prepare(`INSERT INTO evidence(id, kind, text, detail, theme, date, metric, status, entry_ids, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, 'suggested', ?, ?, ?)`);
@@ -237,7 +237,7 @@ export async function createDraft({ kind, angle = '', evidenceIds = [], current 
     if (!what) throw new CareerError('Say what you want to recognize them for.');
     const wins = (latestGrowth(person.id)?.timeline || []).filter(t => t.type === 'win' || t.type === 'milestone').slice(-8).map(t => t.text);
     const { system, messages } = recognitionPrompt({ person, win: what, wins, profile });
-    const d = await complete({ system, messages, json: true, maxTokens: 2000 });
+    const d = await complete({ system, messages, json: true, maxTokens: 2000, task: 'career' });
     // Their name stays (that's the point). Everyone else's is replaced.
     const others = listPeople().filter(p => p.id !== person.id);
     const post = removeNamesFrom(clip(d?.post, 1500), others);
@@ -252,7 +252,7 @@ export async function createDraft({ kind, angle = '', evidenceIds = [], current 
   if (kind === 'story') {
     const evidence = pickEvidence(evidenceIds);
     const { system, messages } = storyDraftPrompt({ evidence, profile, angle: clip(angle, 500) });
-    const d = await complete({ system, messages, json: true, maxTokens: 6000 });
+    const d = await complete({ system, messages, json: true, maxTokens: 6000, task: 'career' });
     const { text, replaced, ambiguous } = removeNames(storyMarkdown(d || {}));
     const flags = checkText(text, { replaced, ambiguous });
     if (evidence.some(e => !e.public_ok)) flags.unshift({ level: 'warn', text: 'Uses evidence you haven’t marked as OK to share publicly. Review those details.' });
@@ -263,7 +263,7 @@ export async function createDraft({ kind, angle = '', evidenceIds = [], current 
     const { record } = await readCareerRecord();
     if (!record?.roles) throw new CareerError('The career record in your portfolio repo isn’t in the expected format.');
     const { system, messages } = resumeDraftPrompt({ evidence, profile, record });
-    const d = await complete({ system, messages, json: true, maxTokens: 5000 });
+    const d = await complete({ system, messages, json: true, maxTokens: 5000, task: 'career' });
     const roleIds = new Set(record.roles.map(r => r.id));
     const evIds = new Set(evidence.map(e => e.id));
     const changes = (Array.isArray(d?.changes) ? d.changes : []).slice(0, 8).map(c => {
@@ -287,7 +287,7 @@ export async function createDraft({ kind, angle = '', evidenceIds = [], current 
     let record = null;
     if (githubStatus().ready) { try { record = (await readCareerRecord()).record; } catch { /* the kit still works without it */ } }
     const { system, messages } = linkedinKitPrompt({ evidence, profile, record, current: clip(current, 6000) });
-    const d = await complete({ system, messages, json: true, maxTokens: 4000 });
+    const d = await complete({ system, messages, json: true, maxTokens: 4000, task: 'career' });
     const fix = s => removeNames(clip(s, 3000));
     const parts = {
       headline: fix(clip(d?.headline, 220)), about: fix(d?.about),

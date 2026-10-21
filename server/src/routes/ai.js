@@ -120,7 +120,7 @@ ai.post('/ask', async (req, res, next) => {
     const asked = question || 'What do you make of this?';
 
     const { system, messages, sources } = buildAsk({ question: asked, history, refs, attachments });
-    const answer = await complete({ system, messages, maxTokens: 4000 });
+    const answer = await complete({ system, messages, maxTokens: 4000, task: 'ask' });
     const cited = citedSources(answer, sources);
 
     // Save the conversation.

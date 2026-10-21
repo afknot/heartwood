@@ -160,6 +160,9 @@ export default function Settings() {
           <Toggle label="Auto-organize" hint="Fill in missing titles, add tags, and link people the AI recognizes. Never overwrites what you set." checked={s.auto_organize} onChange={v => update({ auto_organize: v })} />
           <Toggle label="Delete audio after transcribing" hint="Keep only the text. Saves space and limits what’s stored." checked={s.delete_audio_after_transcribe} onChange={v => update({ delete_audio_after_transcribe: v })} />
         </div>
+
+        <h2 className="section-title">Usage, last 30 days</h2>
+        <AIUsage />
       </>}
 
       {section === 'career' && <>
@@ -228,6 +231,27 @@ function PasswordForm({ notify }) {
       <button className="btn primary block" disabled={!ready || busy}>{busy ? 'Saving…' : 'Change password'}</button>
       <p className="small muted" style={{ marginBottom: 0 }}>Changing it signs out every other device. Forgot it? See “Reset your password” in the README.</p>
     </form>
+  );
+}
+
+const tokens = n => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n || 0));
+
+/** How many AI calls and tokens Heartwood used, and how much the cache saved. */
+function AIUsage() {
+  const [u, setU] = useState(null);
+  useEffect(() => { api.get('/ai/usage?days=30').then(setU).catch(() => setU(false)); }, []);
+  if (u === null) return <p className="small muted">Loading…</p>;
+  if (!u || !u.calls) return <p className="small muted">No AI calls recorded yet. Counts start from this update.</p>;
+  const inTotal = u.input + u.cache_read + u.cache_write;
+  const cached = inTotal ? Math.round((u.cache_read / inTotal) * 100) : 0;
+  return (
+    <div className="card" style={{ padding: '12px 16px' }}>
+      <p style={{ margin: 0 }}><strong>{u.calls}</strong> call{u.calls === 1 ? '' : 's'} · {tokens(inTotal)} read · {tokens(u.output)} written</p>
+      {cached > 0 && <p className="small muted" style={{ margin: '4px 0 0' }}>{cached}% of what was read came from the cache, at about a tenth of the price.</p>}
+      {u.by_task?.length > 0 && <ul className="small muted" style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+        {u.by_task.map(t => <li key={t.task}>{t.task[0].toUpperCase() + t.task.slice(1)}: {t.calls} · {tokens(t.input + t.cache_read)} in, {tokens(t.output)} out</li>)}
+      </ul>}
+    </div>
   );
 }
 

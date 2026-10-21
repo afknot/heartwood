@@ -39,7 +39,7 @@ export async function analyzeEntry(id) {
   updateEntry(id, { status: 'analyzing', error: null });
   try {
     const { system, messages } = entryAnalysisPrompt({ entry, profile: settings.profile, people, related: relatedEntries(entry) });
-    const a = await complete({ system, messages, json: true, maxTokens: 9000 });
+    const a = await complete({ system, messages, json: true, maxTokens: 9000, task: 'reflection' });
     const analysis = normalizeAnalysis(a);
     updateEntry(id, { analysis, analysis_at: now(), status: 'ready' });
     syncFollowups(id, analysis.action_items);
@@ -139,7 +139,7 @@ export async function synthesizeImported(id) {
       text: row.source_text, date: row.created_at.slice(0, 10), heading: entry.title,
       person, profile: settings.profile, fileName: row.source_name
     });
-    const { meta: a, note } = parseMetaNote(await complete({ system, messages, maxTokens: 4000 }));
+    const { meta: a, note } = parseMetaNote(await complete({ system, messages, maxTokens: 4000, task: 'import' }));
     const analysis = { ...normalizeAnalysis(a), light: true };
     syncFollowups(id, analysis.action_items);
     updateEntry(id, {
@@ -189,7 +189,7 @@ export async function processFiles(id, { context = '', quiet = false } = {}) {
         for (let i = 0; i < images.length; i++) {
           const { system, messages } = imageReadPrompt({ fileName: f.name, context, fileNote: f.note, page: i + 1, pages: images.length });
           messages[0].images = [images[i]];
-          const read = await complete({ system, messages, maxTokens: 3000 });
+          const read = await complete({ system, messages, maxTokens: 3000, task: 'read image' });
           pages.push(images.length > 1 ? `#### Page ${i + 1}\n${read.trim()}` : read.trim());
         }
         out = pages.join('\n\n');
@@ -221,7 +221,7 @@ export async function processFiles(id, { context = '', quiet = false } = {}) {
   try {
     const entry = hydrateEntry(getEntryRow(id));
     const { system, messages } = filesSynthesisPrompt({ files, context, profile: settings.profile, people });
-    const { meta: a, note } = parseMetaNote(await complete({ system, messages, maxTokens: 8000 }));
+    const { meta: a, note } = parseMetaNote(await complete({ system, messages, maxTokens: 8000, task: 'files note' }));
     if (!note) throw new Error('The AI returned an empty note.');
     const mine = (row.user_context || '').trim();
     const fields = {

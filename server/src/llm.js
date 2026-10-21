@@ -1,8 +1,35 @@
 // One small interface over Claude, OpenAI and Gemini. Plain fetch, no SDKs.
 import { config } from './config.js';
-import { getSettings } from './db.js';
+import { getSettings, db, now } from './db.js';
 
 export class AIError extends Error {}
+
+/**
+ * Put this in a system prompt right after the part that stays the same from call to call (coaching
+ * stance, who you are, your people). Claude caches everything before it for a few minutes, so a
+ * burst of calls (a recording's analysis, a morning of prep, a chat) pays full price only once.
+ * OpenAI and Gemini cache stable prefixes on their own; for them it's just a paragraph break.
+ */
+export const CACHE_BREAK = '\n\n<<<heartwood:cache>>>\n\n';
+const MIN_CACHE_CHARS = 4000; // below ~1,000 tokens providers won't cache anyway
+const splitSystem = system => String(system).split(CACHE_BREAK);
+
+// ---------- usage ----------
+function recordUsage(provider, model, task, u) {
+  try {
+    db.prepare('INSERT INTO ai_usage(at, provider, model, task, input, output, cache_read, cache_write) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(now(), provider, model, task, u.input || 0, u.output || 0, u.cacheRead || 0, u.cacheWrite || 0);
+  } catch (err) { console.warn('[ai] usage not recorded:', err.message); }
+}
+
+/** Calls and tokens since a date, overall and by task. */
+export function usageSummary({ since = new Date(Date.now() - 30 * 864e5).toISOString() } = {}) {
+  const total = db.prepare(`SELECT COUNT(*) AS calls, COALESCE(SUM(input),0) AS input, COALESCE(SUM(output),0) AS output,
+    COALESCE(SUM(cache_read),0) AS cache_read, COALESCE(SUM(cache_write),0) AS cache_write FROM ai_usage WHERE at >= ?`).get(since);
+  const byTask = db.prepare(`SELECT task, COUNT(*) AS calls, SUM(input) AS input, SUM(output) AS output, SUM(cache_read) AS cache_read
+    FROM ai_usage WHERE at >= ? GROUP BY task ORDER BY SUM(input + output + cache_read + cache_write) DESC LIMIT 12`).all(since);
+  return { since, ...total, by_task: byTask };
+}
 
 /**
  * @param {object} o
@@ -11,8 +38,9 @@ export class AIError extends Error {}
  *   images: base64 pictures attached to that message (vision).
  * @param {boolean} [o.json]  ask for a JSON object back (parsed)
  * @param {number}  [o.maxTokens]
+ * @param {string}  [o.task]  short label for the usage record, e.g. 'analysis'
  */
-export async function complete({ system, messages, json = false, maxTokens = 6000 }) {
+export async function complete({ system, messages, json = false, maxTokens = 6000, task = 'other' }) {
   const s = getSettings();
   const provider = s.ai_provider;
   const model = s.models?.[provider];
@@ -23,11 +51,15 @@ export async function complete({ system, messages, json = false, maxTokens = 600
     ? `${system}\n\nRespond with a single valid JSON object only. No markdown fences, no commentary.`
     : system;
 
-  const call = (msgs, budget) => {
-    if (provider === 'anthropic') return anthropic(model, sys, msgs, budget);
-    if (provider === 'openai') return openai(model, sys, msgs, budget, json);
-    if (provider === 'gemini') return gemini(model, sys, msgs, budget, json);
-    throw new AIError(`Unknown provider ${provider}`);
+  const parts = splitSystem(sys);
+  const call = async (msgs, budget) => {
+    let r;
+    if (provider === 'anthropic') r = await anthropic(model, parts, msgs, budget);
+    else if (provider === 'openai') r = await openai(model, parts.join('\n\n'), msgs, budget, json);
+    else if (provider === 'gemini') r = await gemini(model, parts.join('\n\n'), msgs, budget, json);
+    else throw new AIError(`Unknown provider ${provider}`);
+    recordUsage(provider, model, task, r.usage || {});
+    return r;
   };
 
   let { text, truncated } = await call(messages, maxTokens);
@@ -68,7 +100,10 @@ async function post(url, headers, body, label) {
   return JSON.parse(raw);
 }
 
-async function anthropic(model, system, messages, maxTokens) {
+async function anthropic(model, parts, messages, maxTokens) {
+  // The stable prefix gets a cache marker when it's long enough to be worth caching.
+  const system = parts.map((text, i) => (i < parts.length - 1 && text.length >= MIN_CACHE_CHARS
+    ? { type: 'text', text, cache_control: { type: 'ephemeral' } } : { type: 'text', text })).filter(b => b.text);
   const j = await post('https://api.anthropic.com/v1/messages', {
     'x-api-key': config.keys.anthropic,
     'anthropic-version': '2023-06-01'
@@ -82,7 +117,11 @@ async function anthropic(model, system, messages, maxTokens) {
       ]
     } : { role: m.role, content: m.content })
   }, 'Claude');
-  return { text: (j.content || []).filter(b => b.type === 'text').map(b => b.text).join(''), truncated: j.stop_reason === 'max_tokens' };
+  const u = j.usage || {};
+  return {
+    text: (j.content || []).filter(b => b.type === 'text').map(b => b.text).join(''), truncated: j.stop_reason === 'max_tokens',
+    usage: { input: u.input_tokens, output: u.output_tokens, cacheRead: u.cache_read_input_tokens, cacheWrite: u.cache_creation_input_tokens }
+  };
 }
 
 async function openai(model, system, messages, maxTokens, json) {
@@ -101,7 +140,12 @@ async function openai(model, system, messages, maxTokens, json) {
   const j = await post('https://api.openai.com/v1/chat/completions', {
     authorization: `Bearer ${config.keys.openai}`
   }, body, 'OpenAI');
-  return { text: j.choices?.[0]?.message?.content || '', truncated: j.choices?.[0]?.finish_reason === 'length' };
+  const u = j.usage || {};
+  const cached = u.prompt_tokens_details?.cached_tokens || 0;
+  return {
+    text: j.choices?.[0]?.message?.content || '', truncated: j.choices?.[0]?.finish_reason === 'length',
+    usage: { input: (u.prompt_tokens || 0) - cached, output: u.completion_tokens, cacheRead: cached }
+  };
 }
 
 async function gemini(model, system, messages, maxTokens, json) {
@@ -118,7 +162,12 @@ async function gemini(model, system, messages, maxTokens, json) {
     'x-goog-api-key': config.keys.gemini
   }, body, 'Gemini');
   const parts = j.candidates?.[0]?.content?.parts || [];
-  return { text: parts.filter(p => p.text && !p.thought).map(p => p.text).join(''), truncated: j.candidates?.[0]?.finishReason === 'MAX_TOKENS' };
+  const u = j.usageMetadata || {};
+  const cached = u.cachedContentTokenCount || 0;
+  return {
+    text: parts.filter(p => p.text && !p.thought).map(p => p.text).join(''), truncated: j.candidates?.[0]?.finishReason === 'MAX_TOKENS',
+    usage: { input: (u.promptTokenCount || 0) - cached, output: (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0), cacheRead: cached }
+  };
 }
 
 const unfence = text => String(text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');

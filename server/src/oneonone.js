@@ -160,7 +160,7 @@ async function suggestions(template, person, profile, items) {
     entries.map(e => entryDigest(e, 1500)).join('\n\n---\n\n')
   ].join('\n');
   try {
-    const out = await complete({ system: `${AGENDA_SYSTEM(template)}\n\n${profileBlock(profile)}`, messages: [{ role: 'user', content: user }], json: true, maxTokens: 1500 });
+    const out = await complete({ system: `${AGENDA_SYSTEM(template)}\n\n${profileBlock(profile)}`, messages: [{ role: 'user', content: user }], json: true, maxTokens: 1500, task: 'agenda' });
     const keys = new Set(TEMPLATES[template].sections.map(s => s.key));
     return {
       items: (Array.isArray(out?.items) ? out.items : []).filter(i => keys.has(i.section) && clean(i.text)).slice(0, 6)

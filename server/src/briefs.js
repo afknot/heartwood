@@ -26,7 +26,7 @@ export async function createPersonBrief(personId) {
   const entries = fitToBudget(rows.map(r => hydrateEntry(r)), 3200);
   const s = getSettings();
   const { system, messages } = personBriefPrompt({ person, entries, profile: s.profile, people: listPeople() });
-  const content = await complete({ system, messages, maxTokens: 4000 });
+  const content = await complete({ system, messages, maxTokens: 4000, task: 'person brief' });
   const id = newId();
   db.prepare(`INSERT INTO reports(id, kind, person_id, title, content_md, entry_count, created_at) VALUES (?, 'person', ?, ?, ?, ?, ?)`)
     .run(id, person.id, `Brief: ${person.name}`, content, entries.length, now());
@@ -48,7 +48,7 @@ export async function createGrowth(personId) {
   const known = new Map(entries.map(e => [e.id, e]));
   const s = getSettings();
   const { system, messages } = growthPrompt({ person, entries, profile: s.profile, people: listPeople() });
-  const g = await complete({ system, messages, json: true, maxTokens: 7000 });
+  const g = await complete({ system, messages, json: true, maxTokens: 7000, task: 'growth record' });
   // Keep only well-formed items that cite real entries.
   const clean = {
     summary: String(g?.summary || '').slice(0, 1200),
@@ -86,7 +86,7 @@ export async function createPeriodReport({ fromIso, toIso, from, to, focus = '' 
   const entries = fitToBudget(rows.map(r => hydrateEntry(r)), 2700);
   const s = getSettings();
   const { system, messages } = periodReportPrompt({ entries, profile: s.profile, people: listPeople(), from, to, focus: String(focus).slice(0, 1500) });
-  const content = await complete({ system, messages, maxTokens: 5000 });
+  const content = await complete({ system, messages, maxTokens: 5000, task: 'period debrief' });
   const id = newId();
   const title = focus ? `${from} → ${to}: ${String(focus).slice(0, 60)}` : `${from} → ${to}`;
   db.prepare(`INSERT INTO reports(id, kind, title, range_from, range_to, focus, content_md, entry_count, created_at) VALUES (?, 'period', ?, ?, ?, ?, ?, ?, ?)`)

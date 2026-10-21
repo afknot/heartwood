@@ -203,7 +203,7 @@ today.post('/followups/respond', async (req, res, next) => {
       list
     ].join('\n');
     const images = files.flatMap(a => a.images).slice(0, 8);
-    const out = await complete({ system: RESPOND_SYSTEM, messages: [{ role: 'user', content: user, ...(images.length ? { images } : {}) }], json: true, maxTokens: 4000 });
+    const out = await complete({ system: RESPOND_SYSTEM, messages: [{ role: 'user', content: user, ...(images.length ? { images } : {}) }], json: true, maxTokens: 4000, task: 'update' });
     const byId = Object.fromEntries(candidates.map(f => [f.id, f]));
     const changes = (Array.isArray(out?.changes) ? out.changes : [])
       .filter(c => byId[c.id] && ['done', 'dismiss', 'update'].includes(c.action) && (c.action !== 'update' || String(c.text || '').trim()))

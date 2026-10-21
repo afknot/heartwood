@@ -89,7 +89,7 @@ export async function refreshProfile() {
       const meta = [s.kind, s.channel, s.audience && AUDIENCES[s.audience], ex && `situation: ${ex.prompt}`].filter(Boolean).join(' · ');
       return `<sample ${i + 1} ${meta}>\n${s.text.slice(0, 1500)}\n</sample>`;
     }).join('\n\n');
-    const out = await complete({ system: PROFILE_SYSTEM, messages: [{ role: 'user', content: user }], json: true, maxTokens: 1800 });
+    const out = await complete({ system: PROFILE_SYSTEM, messages: [{ role: 'user', content: user }], json: true, maxTokens: 1800, task: 'voice profile' });
     const list = v => (Array.isArray(v) ? v : []).map(x => clean(x, 200)).filter(Boolean).slice(0, 8);
     const by = {};
     for (const k of Object.keys(AUDIENCES)) if (out?.by_audience?.[k]) by[k] = clean(out.by_audience[k], 300);

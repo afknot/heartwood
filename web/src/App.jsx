@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, lazy, Suspense } from 'react';
 import { AppCtx } from './lib/context.js';
 import { Routes, Route, NavLink, Link, useLocation } from 'react-router-dom';
 import { api } from './api.js';
@@ -8,23 +8,53 @@ import Icon from './components/Icon.jsx';
 import { REFLECT_PATHS } from './components/ReflectNav.jsx';
 import Login from './pages/Login.jsx';
 import Journal from './pages/Journal.jsx';
-import Entry from './pages/Entry.jsx';
-import Record from './pages/Record.jsx';
-import People from './pages/People.jsx';
-import Person from './pages/Person.jsx';
-import Insights from './pages/Insights.jsx';
-import Report from './pages/Report.jsx';
-import Ask from './pages/Ask.jsx';
-import Settings from './pages/Settings.jsx';
-import Import from './pages/Import.jsx';
-import AddFiles from './pages/AddFiles.jsx';
 import Today from './pages/Today.jsx';
-import Schedule from './pages/Schedule.jsx';
-import Career from './pages/Career.jsx';
-import CareerDraft from './pages/CareerDraft.jsx';
-import You from './pages/You.jsx';
-import Voice from './pages/Voice.jsx';
 import { AskSheet } from './components/ContextBar.jsx';
+
+// Today, Journal and Login load with the app; the other screens load when first opened (the note
+// editor alone is most of the app's size), then everything is fetched in the background so the
+// app still works offline.
+const LOADERS = {
+  Entry: () => import('./pages/Entry.jsx'),
+  Record: () => import('./pages/Record.jsx'),
+  People: () => import('./pages/People.jsx'),
+  Person: () => import('./pages/Person.jsx'),
+  Insights: () => import('./pages/Insights.jsx'),
+  Report: () => import('./pages/Report.jsx'),
+  Ask: () => import('./pages/Ask.jsx'),
+  Settings: () => import('./pages/Settings.jsx'),
+  Import: () => import('./pages/Import.jsx'),
+  AddFiles: () => import('./pages/AddFiles.jsx'),
+  Schedule: () => import('./pages/Schedule.jsx'),
+  Career: () => import('./pages/Career.jsx'),
+  CareerDraft: () => import('./pages/CareerDraft.jsx'),
+  You: () => import('./pages/You.jsx'),
+  Voice: () => import('./pages/Voice.jsx')
+};
+const RELOADED = 'heartwood:chunk-reload';
+const page = load => lazy(() => load().then(m => { try { window.sessionStorage.removeItem(RELOADED); } catch { /* private mode */ } return m; }).catch(err => {
+  // After an update, an old screen's file is gone from the server: reload once to get the new app.
+  let again = false;
+  try { again = !window.sessionStorage.getItem(RELOADED); window.sessionStorage.setItem(RELOADED, '1'); } catch { /* private mode */ }
+  if (again) { window.location.reload(); return new Promise(() => {}); }
+  throw err;
+}));
+const Entry = page(LOADERS.Entry);
+const Record = page(LOADERS.Record);
+const People = page(LOADERS.People);
+const Person = page(LOADERS.Person);
+const Insights = page(LOADERS.Insights);
+const Report = page(LOADERS.Report);
+const Ask = page(LOADERS.Ask);
+const Settings = page(LOADERS.Settings);
+const Import = page(LOADERS.Import);
+const AddFiles = page(LOADERS.AddFiles);
+const Schedule = page(LOADERS.Schedule);
+const Career = page(LOADERS.Career);
+const CareerDraft = page(LOADERS.CareerDraft);
+const You = page(LOADERS.You);
+const Voice = page(LOADERS.Voice);
+const prefetch = () => Object.values(LOADERS).forEach(load => load().catch(() => {}));
 
 // Keep the tab bar and other fixed bars anchored on iPhone (see lib/viewport.js).
 watchViewport();
@@ -67,6 +97,10 @@ export default function App() {
     if (!authed) return;
     refreshPeople();
     startUploader(n => notify(`Uploaded ${n} recording${n > 1 ? 's' : ''}. Transcribing now.`));
+    // Once the first screen is up, quietly fetch the rest so later taps are instant (and offline works).
+    const idle = window.requestIdleCallback || (fn => setTimeout(fn, 1500));
+    const t = setTimeout(() => idle(prefetch), 2500);
+    return () => clearTimeout(t);
   }, [authed, refreshPeople, notify]);
 
   if (authed === null) return null;
@@ -79,6 +113,7 @@ export default function App() {
   return (
     <AppCtx.Provider value={{ people, refreshPeople, notify }}>
       <div className={`app${dock ? ' has-dock' : ''}`}>
+        <Suspense fallback={<div className="page" aria-busy="true" />}>
         <Routes>
           <Route path="/" element={<Today />} />
           <Route path="/journal" element={<Journal />} />
@@ -101,6 +136,7 @@ export default function App() {
           <Route path="/import/:id" element={<Import />} />
           <Route path="*" element={<div className="page"><p>Not found. <Link to="/">Back to Today</Link></p></div>} />
         </Routes>
+        </Suspense>
         {!hideTabs && <TabBar dock={dock} people={people} />}
         {toast && <div className="toast" role="status">{toast}</div>}
       </div>

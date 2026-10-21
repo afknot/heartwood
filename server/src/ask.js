@@ -8,7 +8,6 @@ import { listSchedules } from './schedules.js';
 import { meetingSeries } from './calendar.js';
 import { askPrompt, entryText } from './prompts.js';
 
-const REL = { direct_report: 'direct report', peer: 'peer', manager: 'manager', mentor: 'the writer’s mentor', mentee: 'someone the writer mentors', stakeholder: 'stakeholder', other: 'other' };
 const MAX_ENTRIES = 34;
 const ATTACH_TEXT_NOW = 40000; // per file, on the turn it's attached
 const ATTACH_TEXT_LATER = 8000; // per file, when replaying earlier turns
@@ -102,7 +101,8 @@ export function buildAsk({ question, history = [], refs = [], attachments = [] }
   const s = getSettings();
   let { system } = askPrompt({ refs: refsE.map(r => r.pinned ? { ...r, full: entryText(r.entry, { maxChars: 14000 }) } : r), profile: s.profile, people });
 
-  system += `\n\nPeople, with reference labels:\n${refsP.map(({ ref, person: p }) => `[${ref}] ${p.name}${p.pronouns ? ` (${p.pronouns})` : ''}${p.role ? `, ${p.role}` : ''}${p.relationship ? ` (${REL[p.relationship] || p.relationship})` : ''}`).join('\n') || '(none)'}`;
+  // Who they are is in the (cached) people list above; here they just get their labels.
+  system += `\n\nReference labels for people: ${refsP.map(({ ref, person: p }) => `[${ref}] ${p.name}`).join('; ') || '(none)'}`;
   if (refsR.length) {
     system += `\n\nRecurring meetings, with reference labels:\n${refsR.map(({ ref, schedule: r }) =>
       `[${ref}] ${r.display_title} with ${r.people.map(p => `${p.name} [${pRef[p.id]}]`).join(', ') || 'no one yet'}; next: ${r.next.map(o => o.start.slice(0, 16).replace('T', ' ') + ' UTC').join(', ') || 'none scheduled'}`).join('\n')}`;

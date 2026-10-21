@@ -94,7 +94,7 @@ export async function compose({ subject, mode = 'new', channel = 'email', text =
     theirs ? `The message they sent (reply to this):\n<their_message>\n${theirs}\n</their_message>` : '',
     mode === 'improve' ? `The writer's draft:\n<draft>\n${input}\n</draft>` : `What the writer wants to say${mode === 'reply' ? ' in reply' : ''}:\n<intent>\n${input || '(not given: write a sensible, kind reply)'}\n</intent>`
   ].filter(Boolean).join('\n');
-  const out = await complete({ system: SYSTEM({ mode, channel, profile }), messages: [{ role: 'user', content: user }], json: true, maxTokens: 3000 });
+  const out = await complete({ system: SYSTEM({ mode, channel, profile }), messages: [{ role: 'user', content: user }], json: true, maxTokens: 3000, task: 'draft message' });
   const variants = (Array.isArray(out?.variants) ? out.variants : []).slice(0, 2).map(v => ({
     label: clean(v.label, 30) || 'Version', subject: channel === 'email' ? clean(v.subject, 200) : '', text: clean(v.text, 8000)
   })).filter(v => v.text);

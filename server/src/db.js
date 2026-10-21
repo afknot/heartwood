@@ -6,6 +6,12 @@ import { config, DEFAULT_SETTINGS } from './config.js';
 export const db = new Database(path.join(config.dataDir, 'heartwood.db'));
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+// WAL makes NORMAL sync safe (a power cut can lose the last moment, never corrupt). A bigger page
+// cache and in-memory temp tables keep list screens quick on a home server.
+db.pragma('synchronous = NORMAL');
+db.pragma('busy_timeout = 5000');
+db.pragma('cache_size = -16000'); // ~16 MB
+db.pragma('temp_store = MEMORY');
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS entries (
@@ -403,6 +409,29 @@ const MIGRATIONS = [
   () => {
     const cols = db.prepare(`PRAGMA table_info(entry_people)`).all().map(c => c.name);
     if (!cols.includes('role')) db.exec(`ALTER TABLE entry_people ADD COLUMN role TEXT NOT NULL DEFAULT 'with'`);
+  },
+  // 22: speed (indexes for the by-person lookups nearly every screen makes) and a record of AI usage.
+  () => {
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_entry_people_person ON entry_people(person_id, role, entry_id);
+      CREATE INDEX IF NOT EXISTS idx_reports_kind_ref ON reports(kind, ref, created_at);
+      CREATE INDEX IF NOT EXISTS idx_reports_person ON reports(person_id, kind, created_at);
+      CREATE INDEX IF NOT EXISTS idx_followups_person ON followups(person_id);
+      CREATE INDEX IF NOT EXISTS idx_calendar_events_start ON calendar_events(start);
+      CREATE INDEX IF NOT EXISTS idx_invite_events_start ON invite_events(start);
+      CREATE TABLE IF NOT EXISTS ai_usage (
+        at TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        model TEXT NOT NULL DEFAULT '',
+        task TEXT NOT NULL DEFAULT 'other',
+        input INTEGER NOT NULL DEFAULT 0,       -- uncached input tokens
+        output INTEGER NOT NULL DEFAULT 0,
+        cache_read INTEGER NOT NULL DEFAULT 0,  -- input tokens served from the provider's cache
+        cache_write INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE INDEX IF NOT EXISTS idx_ai_usage_at ON ai_usage(at);
+      ANALYZE;
+    `);
   }
 ];
 {

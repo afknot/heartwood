@@ -1,5 +1,6 @@
 // All AI instructions live here so they're easy to read and tune.
 import { styleGuidance } from './leadership.js';
+import { CACHE_BREAK } from './llm.js';
 
 const KIND_LABEL = {
   note: 'written note', memo: 'voice memo', conversation: 'recorded conversation',
@@ -81,9 +82,7 @@ export function entryAnalysisPrompt({ entry, profile, people, related }) {
 
 ${profileBlock(profile)}
 
-${peopleBlock(people)}
-
-Your task: read one journal entry and give the writer a short, high-value reflection.
+${peopleBlock(people)}${CACHE_BREAK}Your task: read one journal entry and give the writer a short, high-value reflection.
 
 Return JSON with exactly these keys:
 {
@@ -118,9 +117,7 @@ export function periodReportPrompt({ entries, profile, people, from, to, focus }
 
 ${profileBlock(profile)}
 
-${peopleBlock(people)}
-
-Your task: review the writer's journal for a period and write a coaching debrief. Look across entries for patterns the writer can't easily see from inside a single day.
+${peopleBlock(people)}${CACHE_BREAK}Your task: review the writer's journal for a period and write a coaching debrief. Look across entries for patterns the writer can't easily see from inside a single day.
 
 Write in Markdown with these sections (skip a section only if there is truly nothing to say):
 ## The short version
@@ -153,9 +150,7 @@ export function personBriefPrompt({ person, entries, profile, people }) {
 
 ${profileBlock(profile)}
 
-${peopleBlock(people)}
-
-Your task: write a relationship brief about one person, based only on the writer's journal entries that involve them. This helps the writer prepare for their next conversation and lead this person well.
+${peopleBlock(people)}${CACHE_BREAK}Your task: write a relationship brief about one person, based only on the writer's journal entries that involve them. This helps the writer prepare for their next conversation and lead this person well.
 
 Write in Markdown with these sections:
 ## Where things stand
@@ -187,9 +182,7 @@ export function growthPrompt({ person, entries, profile, people }) {
 
 ${profileBlock(profile)}
 
-${peopleBlock(people)}
-
-Your task: build a growth record for one person from the writer's journal entries that involve them: their goals, wins, concerns, feedback the writer gave them, and milestones over time. The writer will use it to coach this person and, at review time, to write about their year with specific, dated evidence.
+${peopleBlock(people)}${CACHE_BREAK}Your task: build a growth record for one person from the writer's journal entries that involve them: their goals, wins, concerns, feedback the writer gave them, and milestones over time. The writer will use it to coach this person and, at review time, to write about their year with specific, dated evidence.
 
 Rules:
 - Use only what the entries say. Every timeline item must cite the entry it came from by its id. Never invent dates, numbers or events.
@@ -265,9 +258,7 @@ export function filesSynthesisPrompt({ files, context, profile, people }) {
 
 ${profileBlock(profile)}
 
-${peopleBlock(people)}
-
-Rules:
+${peopleBlock(people)}${CACHE_BREAK}Rules:
 - Work only from the files and the writer's own context. Never invent facts.
 - When the writer adds a note about a specific file (who wrote it, when, what it is), trust it and use it to frame that file, e.g. whose notes these are or which round of a review it was.
 - Write for the writer, in plain Markdown: what this is, what matters in it, and anything notable about the people or projects involved. Use short headed sections when they help. Keep key specifics (names, numbers, ratings, dates, decisions).
@@ -304,9 +295,7 @@ export function prepPrompt({ person, event, entries, followups, profile, people 
 
 ${profileBlock(profile)}
 
-${peopleBlock(people)}
-
-Your task: help the writer walk into their next conversation with ${person.name} prepared and present. Base everything on the journal; say so when the journal is thin.
+${peopleBlock(people)}${CACHE_BREAK}Your task: help the writer walk into their next conversation with ${person.name} prepared and present. Base everything on the journal; say so when the journal is thin.
 
 Write in Markdown, about 250–400 words, with these sections:
 ## Since you last talked
@@ -339,9 +328,7 @@ export function askPrompt({ refs, profile, people }) {
 
 ${profileBlock(profile)}
 
-${peopleBlock(people)}
-
-You are answering questions about the writer's journal. Relevant entries are provided below, each labeled with a reference like [E3]. Use them as your evidence and cite them inline with those exact labels, e.g. "you mentioned this in [E3] and [E7]". If the entries don't contain the answer, say so plainly and answer from general leadership experience, clearly marked as such. Reply in Markdown, concise and direct.
+${peopleBlock(people)}${CACHE_BREAK}You are answering questions about the writer's journal. Relevant entries are provided below, each labeled with a reference like [E3]. Use them as your evidence and cite them inline with those exact labels, e.g. "you mentioned this in [E3] and [E7]". If the entries don't contain the answer, say so plainly and answer from general leadership experience, clearly marked as such. Reply in Markdown, concise and direct.
 
 Journal entries:
 

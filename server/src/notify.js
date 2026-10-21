@@ -81,7 +81,7 @@ export async function morningSummary({ force = false } = {}) {
   if (n.auto_prep) {
     for (const ev of events) {
       if (ev.prep) continue;
-      try { const r = await makePrep({ personId: ev.people[0].id, eventKey: ev.key }); ev.prep = { id: r.id }; }
+      try { const r = await makePrep({ personId: ev.people[0].id, eventKey: ev.key, reuse: true }); ev.prep = { id: r.id }; }
       catch (err) { console.error('[push] prep', err.message); }
     }
   }
