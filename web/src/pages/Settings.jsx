@@ -158,6 +158,7 @@ export default function Settings() {
         <div className="card" style={{ padding: '4px 16px' }}>
           <Toggle label="Reflect automatically after recording" hint="Runs the AI reflection as soon as a transcript is ready." checked={s.auto_analyze} onChange={v => update({ auto_analyze: v })} />
           <Toggle label="Auto-organize" hint="Fill in missing titles, add tags, and link people the AI recognizes. Never overwrites what you set." checked={s.auto_organize} onChange={v => update({ auto_organize: v })} />
+          <Toggle label="Live coach while recording" hint="Suggests questions to ask, things to say and commitments to note during 1:1s, conversations and meetings. You can still turn it off for one recording." checked={s.live_coach !== false} onChange={v => update({ live_coach: v })} />
           <Toggle label="Delete audio after transcribing" hint="Keep only the text. Saves space and limits what’s stored." checked={s.delete_audio_after_transcribe} onChange={v => update({ delete_audio_after_transcribe: v })} />
         </div>
 

@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import Icon from '../components/Icon.jsx';
 import GrainRings from '../components/GrainRings.jsx';
 import { PeoplePicker } from '../components/Pickers.jsx';
-import { uploadRecording } from '../api.js';
+import { api, uploadRecording } from '../api.js';
 import { removePending } from '../lib/pending.js';
 import { Recording, listMics, micError, openMic, meter, canShareTabAudio } from '../lib/recorder.js';
 import { useApp } from '../lib/context.js';
@@ -124,8 +124,9 @@ export default function Record() {
   const [silent, setSilent] = useState(false);
   const [notice, setNotice] = useState('');
   const [saved, setSaved] = useState(null); // { seconds, entryId } after an interruption
-  const [coachOn, setCoachOnState] = useState(() => store.get('hw:coach') !== '0');
-  const setCoachOn = v => { setCoachOnState(v); store.set('hw:coach', v ? '1' : '0'); };
+  // Live coach follows Settings; the checkbox here changes it for this recording only.
+  const [coachOn, setCoachOn] = useState(true);
+  useEffect(() => { api.get('/settings').then(r => setCoachOn(r.settings?.live_coach !== false)).catch(() => {}); }, []);
   const [coachState, setCoachState] = useState(null);
   const coachRef = useRef(null);
 
@@ -367,7 +368,7 @@ export default function Record() {
       {secure && supported && <MicCheck deviceId={deviceId} setDeviceId={setDeviceId} disabled={stage !== 'setup'} />}
 
       {secure && supported && kind !== 'memo' && canShareTabAudio() && (
-        <label className="check" style={{ marginBottom: 16 }}>
+        <label className="check plain" style={{ marginBottom: 16 }}>
           <input type="checkbox" checked={tabAudio} onChange={e => setTabAudio(e.target.checked)} />
           <span>Also record the meeting’s sound from a browser tab
             <br /><small className="muted">For Google Meet, Teams or Zoom in the browser when you’re on headphones (otherwise your mic only hears you). You’ll pick the tab and turn on “Share tab audio”. Desktop apps’ sound can’t be shared this way.</small>
@@ -376,10 +377,10 @@ export default function Record() {
       )}
 
       {kind !== 'memo' && (
-        <label className="check" style={{ marginBottom: 16 }}>
+        <label className="check plain" style={{ marginBottom: 16 }}>
           <input type="checkbox" checked={coachOn} onChange={e => setCoachOn(e.target.checked)} />
           <span>Live coach: suggest questions and responses while you talk
-            <br /><small className="muted">Every half minute, a short piece of the conversation goes to your transcription engine and your AI for suggestions. Nothing from it is saved; the full recording is transcribed afterwards as usual.</small>
+            <br /><small className="muted">Every half minute, a short piece of the conversation goes to your transcription engine and your AI for suggestions. Nothing from it is saved. Change the default in Settings → AI & transcription.</small>
           </span>
         </label>
       )}

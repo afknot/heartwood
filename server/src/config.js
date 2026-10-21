@@ -49,6 +49,7 @@ export const DEFAULT_SETTINGS = {
   auto_analyze: true,
   auto_organize: true,
   delete_audio_after_transcribe: false,
+  live_coach: true,                 // suggest questions and responses while recording a conversation
   notifications: {
     morning: true,
     morning_time: '08:00',

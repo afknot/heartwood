@@ -71,7 +71,7 @@ settings.put('/settings', (req, res) => {
   const patch = {};
   if (['anthropic', 'openai', 'gemini'].includes(b.ai_provider)) patch.ai_provider = b.ai_provider;
   if (['local', 'openai', 'gemini'].includes(b.transcribe_provider)) patch.transcribe_provider = b.transcribe_provider;
-  for (const k of ['auto_analyze', 'auto_organize', 'delete_audio_after_transcribe']) if (typeof b[k] === 'boolean') patch[k] = b[k];
+  for (const k of ['auto_analyze', 'auto_organize', 'delete_audio_after_transcribe', 'live_coach']) if (typeof b[k] === 'boolean') patch[k] = b[k];
   const str = o => Object.fromEntries(Object.entries(o || {}).filter(([, v]) => typeof v === 'string').map(([k, v]) => [k, v.trim().slice(0, 2000)]));
   if (b.models) patch.models = { ...getSettings().models, ...str(b.models) };
   if (b.transcribe_models) patch.transcribe_models = { ...getSettings().transcribe_models, ...str(b.transcribe_models) };
