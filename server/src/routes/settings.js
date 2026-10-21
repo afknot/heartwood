@@ -4,7 +4,7 @@ import path from 'node:path';
 import { config } from '../config.js';
 import { db, getSettings, saveSettings, hydrateEntry } from '../db.js';
 import { availableProviders } from '../config.js';
-import { vaultStatus, vaultSet, VAULT_FIELDS, secret } from '../vault.js';
+import { vaultStatus, vaultSet, VAULT_FIELDS } from '../vault.js';
 import { checkInbox } from '../invites.js';
 import { backupInfo, requestBackup, setupBackups, startDrive, finishDrive, BackupError } from '../backups.js';
 import { kindLabel, plainMentions } from '../prompts.js';
@@ -21,9 +21,6 @@ settings.put('/connections', (req, res) => {
     if (name === 'invite_imap_port' && value && !/^\d{2,5}$/.test(value.trim())) return res.status(400).json({ error: 'The IMAP port is a number, usually 993.' });
     if (name === 'invite_email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) return res.status(400).json({ error: 'That mailbox address doesn’t look right.' });
     if (name === 'invite_imap_host' && value && !/^[a-z0-9.-]+$/i.test(value.trim())) return res.status(400).json({ error: 'Enter just the mail server name, like mail.example.com.' });
-    if (name === 'slack_token' && value && !/^xox[pb]-[\w-]+$/.test(value.trim())) return res.status(400).json({ error: 'A Slack user token starts with xoxp-.' });
-    if (name === 'slack_channel' && value && !/^#?[\w.-]{1,80}$/.test(value.trim())) return res.status(400).json({ error: 'Enter a channel name like #kudos (no spaces).' });
-    if (name === 'teams_webhook_url' && value && !/^https:\/\/[^\s]+$/.test(value.trim())) return res.status(400).json({ error: 'Paste the https:// link from the Teams workflow.' });
     vaultSet(name, value);
   }
   if (Object.keys(b).some(k => k.startsWith('invite_'))) checkInbox().catch(() => {});
@@ -46,11 +43,6 @@ settings.post('/connections/test', async (req, res) => {
       const repo = getSettings().career?.repo;
       return res.json(await call(repo && /^[\w.-]+\/[\w.-]+$/.test(repo) ? `https://api.github.com/repos/${repo}` : 'https://api.github.com/user',
         { authorization: `Bearer ${config.githubToken}`, accept: 'application/vnd.github+json', 'user-agent': 'Heartwood' }));
-    }
-    if (what === 'slack' && secret('slack_token')) {
-      const r = await fetch('https://slack.com/api/auth.test', { method: 'POST', headers: { authorization: `Bearer ${secret('slack_token')}` }, signal: AbortSignal.timeout(15000) });
-      const j = await r.json().catch(() => ({}));
-      return res.json(j.ok ? { ok: true, who: `${j.user} in ${j.team}` } : { ok: false, error: j.error === 'invalid_auth' ? 'Slack turned that token down. Check you copied all of it.' : `Slack said: ${j.error || r.status}` });
     }
     res.json({ ok: false, error: 'Nothing saved to test yet.' });
   } catch (e) {

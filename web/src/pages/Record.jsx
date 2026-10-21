@@ -7,6 +7,7 @@ import { uploadRecording } from '../api.js';
 import { removePending } from '../lib/pending.js';
 import { Recording, listMics, micError, openMic, meter, canShareTabAudio } from '../lib/recorder.js';
 import { useApp } from '../lib/context.js';
+import { LiveCoach } from '../lib/live.js';
 import { duration } from '../lib/format.js';
 
 const KIND_OPTS = [
@@ -18,6 +19,41 @@ const KIND_OPTS = [
 const uuid = () => crypto.randomUUID?.() || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
   const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16);
 });
+const COACH_ICON = { ask: 'ask', say: 'people', note: 'check' };
+const COACH_LABEL = { ask: 'Ask', say: 'Say', note: 'Note' };
+
+/** Suggestions while you talk: glanceable, a few at a time. */
+function CoachCard({ coach, state }) {
+  const [open, setOpen] = useState(true);
+  if (!state) return null;
+  if (state.status === 'off') return state.error ? <p className="small muted" style={{ maxWidth: 340 }}>{state.error}</p> : null;
+  return (
+    <section className="coach-card" aria-live="polite" aria-label="Live coach">
+      <div className="row" style={{ gap: 8 }}>
+        <b className="grow" style={{ fontSize: 14 }}><Icon name="sparkle" size={15} /> Live coach</b>
+        <button className="btn small ghost" onClick={() => coach?.suggest()} disabled={state.thinking || !state.heard}>
+          {state.thinking ? <><span className="spinner" /> Thinking…</> : 'Suggest now'}
+        </button>
+        <button className="icon-btn" onClick={() => setOpen(o => !o)} aria-expanded={open} aria-label={open ? 'Hide suggestions' : 'Show suggestions'}><Icon name={open ? 'x' : 'plus'} size={16} /></button>
+      </div>
+      {open && <>
+        {state.items.length > 0
+          ? <ul className="coach-items">
+            {state.items.map((i, n) => (
+              <li key={`${i.text}-${n}`} className={`coach-item ${i.type}`}>
+                <span className="coach-type"><Icon name={COACH_ICON[i.type]} size={13} /> {COACH_LABEL[i.type]}</span>
+                <span className="coach-text">{i.text}</span>
+                {i.why && <span className="small muted">{i.why}</span>}
+              </li>
+            ))}
+          </ul>
+          : <p className="small muted" style={{ margin: '6px 0 0' }}>{state.heard ? (state.quiet ? 'Nothing to suggest just yet. Keep going.' : 'Listening. Suggestions come every couple of minutes, or tap Suggest now.') : 'Listening. The first suggestions come after a minute or so of conversation.'}</p>}
+        {state.error && <p className="small" role="status" style={{ margin: '6px 0 0', color: 'var(--rec-text)' }}>{state.error}</p>}
+      </>}
+    </section>
+  );
+}
+
 const store = { get: k => { try { return localStorage.getItem(k) || ''; } catch { return ''; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* blocked */ } } };
 
 /** Pick a microphone and check it hears you, before recording. */
@@ -88,6 +124,10 @@ export default function Record() {
   const [silent, setSilent] = useState(false);
   const [notice, setNotice] = useState('');
   const [saved, setSaved] = useState(null); // { seconds, entryId } after an interruption
+  const [coachOn, setCoachOnState] = useState(() => store.get('hw:coach') !== '0');
+  const setCoachOn = v => { setCoachOnState(v); store.set('hw:coach', v ? '1' : '0'); };
+  const [coachState, setCoachState] = useState(null);
+  const coachRef = useRef(null);
 
   const recRef = useRef(null);
   const clock = useRef({ start: 0, acc: 0 });
@@ -140,7 +180,8 @@ export default function Record() {
     return () => { document.removeEventListener('visibilitychange', onVis); window.removeEventListener('pagehide', hidden); };
   }, [live, stage]);
 
-  useEffect(() => () => { recRef.current?.release(); wake.current?.release?.().catch(() => {}); }, []);
+  useEffect(() => () => { recRef.current?.release(); coachRef.current?.stop(); wake.current?.release?.().catch(() => {}); }, []);
+  const stopCoach = () => { coachRef.current?.stop(); coachRef.current = null; };
 
   async function start() {
     setError(''); setSilent(false); setNotice('');
@@ -167,23 +208,35 @@ export default function Record() {
     }
     recRef.current = r;
     clock.current = { start: performance.now(), acc: 0 };
+    stopCoach(); setCoachState(null);
+    if (coachOn && kind !== 'memo' && r.source) {
+      const c = new LiveCoach({
+        stream: r.source, kind, people: who, title: title.trim(), onChange: setCoachState,
+        seconds: () => (clock.current.acc + (recRef.current?.state === 'recording' ? performance.now() - clock.current.start : 0)) / 1000
+      });
+      coachRef.current = c;
+      c.start();
+    }
     try { wake.current = await navigator.wakeLock?.request('screen'); } catch { /* not supported */ }
     setStage('recording');
   }
 
   function pause() {
     recRef.current.pause();
+    coachRef.current?.pause();
     clock.current.acc += performance.now() - clock.current.start;
     setStage('paused');
   }
   function resume() {
     recRef.current.resume();
+    coachRef.current?.resume();
     clock.current.start = performance.now();
     setStage('recording');
   }
 
   async function discard() {
     if (!confirm('Discard this recording? It will not be saved anywhere.')) return;
+    stopCoach();
     await recRef.current?.discard();
     recRef.current = null;
     wake.current?.release?.().catch(() => {});
@@ -197,6 +250,7 @@ export default function Record() {
     const secs = interrupted ? (r.meta.seconds || elapsed) : seconds();
     if (!interrupted && r.maxRms < 0.004 && secs > 5 && !confirm(`Heartwood didn’t hear anything in this recording${r.micLabel ? ` from “${r.micLabel}”` : ''}. Save it anyway?`)) return;
     recRef.current = null;
+    stopCoach();
     wake.current?.release?.().catch(() => {});
     setStage('saving'); setProgress(0);
     const item = await r.finish({ seconds: secs, ...(interrupted ? { interrupted: true } : {}) }).catch(() => null);
@@ -262,7 +316,8 @@ export default function Record() {
           </div>
         )}
         {notice && <div className="banner" role="status" style={{ maxWidth: 340, textAlign: 'left' }}>{notice}</div>}
-        <GrainRings getLevel={getLevel} paused={stage === 'paused'} />
+        {coachState ? <div className="rec-rings-small"><GrainRings getLevel={getLevel} paused={stage === 'paused'} /></div> : <GrainRings getLevel={getLevel} paused={stage === 'paused'} />}
+        <CoachCard coach={coachRef.current} state={coachState} />
         <div className="rec-controls">
           <button className="round" onClick={discard} aria-label="Discard"><Icon name="trash" /></button>
           <button className="round big" onClick={() => finish()} aria-label="Stop and save"><Icon name="stop" size={30} /></button>
@@ -316,6 +371,15 @@ export default function Record() {
           <input type="checkbox" checked={tabAudio} onChange={e => setTabAudio(e.target.checked)} />
           <span>Also record the meeting’s sound from a browser tab
             <br /><small className="muted">For Google Meet, Teams or Zoom in the browser when you’re on headphones (otherwise your mic only hears you). You’ll pick the tab and turn on “Share tab audio”. Desktop apps’ sound can’t be shared this way.</small>
+          </span>
+        </label>
+      )}
+
+      {kind !== 'memo' && (
+        <label className="check" style={{ marginBottom: 16 }}>
+          <input type="checkbox" checked={coachOn} onChange={e => setCoachOn(e.target.checked)} />
+          <span>Live coach: suggest questions and responses while you talk
+            <br /><small className="muted">Every half minute, a short piece of the conversation goes to your transcription engine and your AI for suggestions. Nothing from it is saved; the full recording is transcribed afterwards as usual.</small>
           </span>
         </label>
       )}

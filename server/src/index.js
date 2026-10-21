@@ -23,6 +23,7 @@ import { people } from './routes/people.js';
 import { ai } from './routes/ai.js';
 import { settings } from './routes/settings.js';
 import { career } from './routes/career.js';
+import { live } from './routes/live.js';
 import { resumeJobs } from './jobs.js';
 import { backfillRoles } from './roles.js';
 import { AIError } from './llm.js';
@@ -95,6 +96,7 @@ app.use('/api', ai);
 app.use('/api', settings);
 app.use('/api', career);
 app.use('/api', talk);
+app.use('/api', live);
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 
 app.use((err, req, res, next) => {

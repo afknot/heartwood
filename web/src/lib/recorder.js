@@ -95,6 +95,7 @@ export class Recording {
       }
     }
     for (const t of mic.getAudioTracks()) t.addEventListener('ended', () => this.onDrop('ended'));
+    this.source = source; // shared with the live coach, which listens to the same sound
 
     const mime = pickMime();
     const r = new MediaRecorder(source, mime ? { mimeType: mime, audioBitsPerSecond: 64000 } : undefined);

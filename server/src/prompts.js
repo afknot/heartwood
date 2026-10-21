@@ -538,7 +538,7 @@ ${evidence.map(x => `- ${x.public_ok ? '[public-safe] ' : ''}${x.text}${x.metric
 
 /** Kudos for someone the writer works with, for each place it might go (named on purpose, with their OK). */
 export function recognitionPrompt({ person, win, wins, profile }) {
-  const system = `You help a people leader recognize someone they work with: in person, in a direct message, in a team channel, and on LinkedIn.
+  const system = `You help a people leader recognize someone they work with: in person, in a message to them, in front of the team, and on LinkedIn.
 
 ${profileBlock(profile)}
 
@@ -550,8 +550,8 @@ Rules for every version:
 
 The versions:
 - "say": 1–2 sentences the writer could say out loud in their next 1:1. Natural speech, second person ("you").
-- "direct": a private Slack or Teams message to them, 40–90 words, second person. It can mention specifics only the two of them know, but nothing about performance ratings or anyone else.
-- "channel": a shout-out for the team's Slack or Teams channel, 30–80 words, third person, using their full name once. Internal audience, but nothing sensitive: no ratings, comparisons with colleagues or anything personal.
+- "direct": a private message to them (chat or email), 40–90 words, second person. It can mention specifics only the two of them know, but nothing about performance ratings or anyone else.
+- "channel": a shout-out to share with the team (a team chat, a meeting, an email), 30–80 words, third person, using their full name once. Internal audience, but nothing sensitive: no ratings, comparisons with colleagues or anything personal.
 - "post": a public LinkedIn post, under 120 words, with a natural place to @mention them. Nothing confidential or internal (unreleased plans, budgets, internal conflicts).
 - "recommendation": 60–120 words in the style of a LinkedIn recommendation, written from the writer's relationship to them.
 

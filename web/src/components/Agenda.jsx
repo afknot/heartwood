@@ -130,7 +130,7 @@ export function AgendaBuilder({ person, event, onDone }) {
                         <span className="small muted">{i.from === 'followup' ? 'Open follow-up' : i.from === 'style' ? 'For your leadership style' : `From your notes: ${i.why}`}</span>
                       )}
                       {i.from === 'kudos' && (i.kudos_id
-                        ? <Link className="small" to={`/career/drafts/${i.kudos_id}`}>Kudos draft · send it too</Link>
+                        ? <Link className="small" to={`/career/drafts/${i.kudos_id}`}>Kudos draft</Link>
                         : <Link className="small" to={`/career?recognize=${person.id}&win=${encodeURIComponent(i.text.replace(/^Kudos: /, ""))}#drafts`}>A win worth recognizing · draft kudos</Link>)}
                       <button type="button" className={`agenda-priv${i.private ? ' on' : ''}`} aria-pressed={i.private} onClick={() => change(i.id, { private: !i.private })}
                         title={i.private ? 'Only you see this. Tap to include it when you share.' : 'Included when you share. Tap to keep it to yourself.'}>

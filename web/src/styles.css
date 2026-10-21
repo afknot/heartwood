@@ -319,6 +319,13 @@ audio { width: 100%; height: 40px; margin-bottom: 12px; }
 .grain-rings { display: block; overflow: visible; max-width: 72vw; height: auto; }
 .grain-rings path { fill: none; stroke: var(--grain); stroke-width: 5.5px; stroke-linejoin: round; }
 .grain-rings circle { fill: var(--heartwood); }
+.rec-rings-small .grain-rings { width: 140px; }
+.coach-card { width: 100%; max-width: 380px; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 10px 14px 12px; }
+.coach-items { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.coach-item { display: flex; flex-direction: column; gap: 2px; }
+.coach-type { font-size: 12px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--accent); display: inline-flex; align-items: center; gap: 4px; }
+.coach-item.note .coach-type { color: var(--grain); }
+.coach-text { font-size: 17px; line-height: 1.35; }
 .rec-controls { display: flex; align-items: center; gap: 28px; }
 .round { width: 60px; height: 60px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; cursor: pointer; color: var(--ink); }
 .round.big { width: 84px; height: 84px; background: var(--rec); border-color: var(--rec); color: #fff; box-shadow: 0 8px 24px color-mix(in srgb, var(--rec) 35%, transparent); }
