@@ -9,6 +9,10 @@ import { OccurrenceSheet, theirTimes } from '../components/Occurrence.jsx';
 import { MeetingSheet } from '../components/MeetingSheet.jsx';
 import { useApp } from '../lib/context.js';
 import { PracticeCard, WeekCard } from '../components/TodayExtras.jsx';
+import Sheet from '../components/Sheet.jsx';
+
+const eodTitle = () => `End of day · ${new Date().toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}`;
+const eodRecord = () => `/record?kind=memo&guide=day&title=${encodeURIComponent(eodTitle())}`;
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -77,10 +81,13 @@ export default function Today() {
     try { const r = await api.post('/reflections/end-of-day'); nav(`/entry/${r.id}`); }
     catch (e) { notify(e.message); }
   }
+  // From the notification: ask how you'd like to reflect (write or say it). "write" goes straight to the note.
+  const [eodChoice, setEodChoice] = useState(false);
   useEffect(() => {
-    if (params.get('reflect') !== 'day') return;
+    const r = params.get('reflect');
+    if (r !== 'day' && r !== 'write') return;
     setParams({}, { replace: true });
-    reflectOnDay();
+    if (r === 'write') reflectOnDay(); else setEodChoice(true);
   }, [params]);
   const [eodHidden, setEodHidden] = useState(() => { try { return localStorage.getItem('hw:eod-hidden') === new Date().toDateString(); } catch { return false; } });
 
@@ -127,6 +134,15 @@ export default function Today() {
         </div>
       </div>
 
+      <Sheet open={eodChoice} onClose={() => setEodChoice(false)} title="End of day">
+        <p className="muted" style={{ marginTop: 0 }}>Two minutes: what went well, how you showed up, what to carry into tomorrow.</p>
+        <div className="stack">
+          <button className="btn primary block" onClick={() => { setEodChoice(false); reflectOnDay(); }}><Icon name="note" size={18} /> {data.end_of_day?.entry_id ? 'Open your note' : 'Write it'}</button>
+          <Link className="btn rec block" to={eodRecord()} onClick={() => setEodChoice(false)}><Icon name="mic" size={18} /> Say it out loud</Link>
+          <button className="btn ghost block" onClick={() => setEodChoice(false)}>Not now</button>
+        </div>
+      </Sheet>
+
       {data.end_of_day?.due && !eodHidden && (
         <div className="card eod-card">
           <div className="row" style={{ alignItems: 'flex-start', gap: 10 }}>
@@ -136,7 +152,7 @@ export default function Today() {
               <p className="small muted" style={{ margin: '2px 0 10px' }}>{data.end_of_day.conversations ? `${data.end_of_day.conversations} conversation${data.end_of_day.conversations === 1 ? '' : 's'} today. ` : ''}Two minutes: what went well, how you showed up, what to carry into tomorrow.</p>
               <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
                 <button className="btn small primary" onClick={reflectOnDay}><Icon name="note" size={16} /> Reflect</button>
-                <Link className="btn small" to={`/record?kind=memo&title=${encodeURIComponent(`End of day · ${new Date().toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}`)}`}><Icon name="mic" size={16} /> Say it</Link>
+                <Link className="btn small" to={eodRecord()}><Icon name="mic" size={16} /> Say it</Link>
                 <button className="btn small ghost" onClick={() => { setEodHidden(true); try { localStorage.setItem('hw:eod-hidden', new Date().toDateString()); } catch { /* storage blocked */ } }}>Not today</button>
               </div>
             </div>

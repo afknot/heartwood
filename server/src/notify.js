@@ -191,7 +191,11 @@ async function tick() {
       await sendAll({
         title: 'End of day',
         body: met ? `${met} conversation${met === 1 ? '' : 's'} today. Two minutes: what went well, what to carry into tomorrow?` : 'Two minutes: what went well, and what do you want to carry into tomorrow?',
-        url: '/?reflect=day', tag: 'evening'
+        url: '/?reflect=day', tag: 'evening',
+        actions: [
+          { action: 'write', title: 'Write it', url: '/?reflect=write' },
+          { action: 'record', title: 'Say it', url: `/record?kind=memo&guide=day&title=${encodeURIComponent(`End of day · ${new Date().toLocaleDateString('en-US', { timeZone: tz(), weekday: 'short', month: 'short', day: 'numeric' })}`)}` }
+        ]
       }).catch(err => console.error('[push] evening', err.message));
     }
   }

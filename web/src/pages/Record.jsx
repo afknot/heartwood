@@ -19,6 +19,15 @@ const KIND_OPTS = [
 const uuid = () => crypto.randomUUID?.() || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
   const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16);
 });
+// Shown when you record your end-of-day reflection, the same prompts as the written note.
+const DAY_PROMPTS = ['What went well?', 'What took more energy than it should have?', 'How did I show up as a leader today?', 'Who needs something from me tomorrow?', 'One thing to carry into tomorrow'];
+const Guide = () => (
+  <section className="coach-card" aria-label="Things to talk through">
+    <b style={{ fontSize: 14 }}>Things to talk through</b>
+    <ul className="guide-list">{DAY_PROMPTS.map(q => <li key={q}>{q}</li>)}</ul>
+  </section>
+);
+
 const COACH_ICON = { ask: 'ask', say: 'people', note: 'check' };
 const COACH_LABEL = { ask: 'Ask', say: 'Say', note: 'Note' };
 
@@ -317,8 +326,9 @@ export default function Record() {
           </div>
         )}
         {notice && <div className="banner" role="status" style={{ maxWidth: 340, textAlign: 'left' }}>{notice}</div>}
-        {coachState ? <div className="rec-rings-small"><GrainRings getLevel={getLevel} paused={stage === 'paused'} /></div> : <GrainRings getLevel={getLevel} paused={stage === 'paused'} />}
+        {coachState || params.get('guide') === 'day' ? <div className="rec-rings-small"><GrainRings getLevel={getLevel} paused={stage === 'paused'} /></div> : <GrainRings getLevel={getLevel} paused={stage === 'paused'} />}
         <CoachCard coach={coachRef.current} state={coachState} />
+        {params.get('guide') === 'day' && <Guide />}
         <div className="rec-controls">
           <button className="round" onClick={discard} aria-label="Discard"><Icon name="trash" /></button>
           <button className="round big" onClick={() => finish()} aria-label="Stop and save"><Icon name="stop" size={30} /></button>
@@ -360,6 +370,8 @@ export default function Record() {
           </div>
         </div>
       )}
+
+      {params.get('guide') === 'day' && <div style={{ marginBottom: 16 }}><Guide /></div>}
 
       <label className="field"><span>Title <small>(optional)</small></span>
         <input className="input" value={title} onChange={e => setTitle(e.target.value)} placeholder="Leave blank and Heartwood will name it" />

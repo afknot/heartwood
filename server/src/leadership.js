@@ -52,7 +52,10 @@ export function styleGuidance(profile = {}) {
   return `Leadership styles they're growing toward: ${ids.map(id => STYLES[id].label).join(', ')}.\n${ids.map(id => `- ${STYLES[id].coach}`).join('\n')}\nTailor your coaching to these styles: notice and name moments they lived them, and when something they describe pulls the other way, offer the version that fits, without judging them.`;
 }
 
-// Short quotes, checked against the linked source. Kept brief and attributed.
+import { packOf, activePacks, customItems } from './inspiration.js';
+
+// Short quotes, checked against the linked source. Kept brief and attributed. Quotes from shows and
+// films belong to a built-in set (see inspiration.js) and appear only when you've added that source.
 export const QUOTES = [
   { text: 'Do those served grow as persons?', who: 'Robert K. Greenleaf', work: 'The Servant as Leader', styles: ['servant'], url: 'https://serveleadnow.com/greenleafs-best-test-servant-leader/' },
   { text: 'Push authority to information, not information to authority.', who: 'L. David Marquet', work: 'on intent-based leadership', styles: ['space'], url: 'https://nextbigideaclub.com/magazine/conversation-a-navy-captain-on-why-the-best-leaders-dont-have-all-the-answers/22777/' },
@@ -100,9 +103,18 @@ export const QUOTES = [
 
 const hash = s => { let h = 2166136261; for (const c of s) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
 
-/** One quote for the day, from your styles when you've chosen some. */
+/**
+ * One quote for the day. Two days in three it comes from your inspiration (Settings → About you),
+ * when you have some; otherwise from the leadership writers. Your styles narrow either pool.
+ */
 export function quoteForDay(ymd, profile = {}) {
   const ids = chosenStyles(profile);
-  const pool = ids.length ? QUOTES.filter(q => q.styles.some(s => ids.includes(s))) : QUOTES;
-  return (pool.length ? pool : QUOTES)[hash(`q:${ymd}`) % (pool.length || QUOTES.length)];
+  const packs = activePacks();
+  const core = QUOTES.filter(q => !packOf(q.work));
+  const yours = [...QUOTES.filter(q => packs.has(packOf(q.work))), ...customItems('quote')];
+  const h = hash(`q:${ymd}`);
+  const base = yours.length && h % 3 !== 0 ? yours : core;
+  const styled = ids.length ? base.filter(q => (q.styles || []).some(s => ids.includes(s))) : base;
+  const pool = styled.length ? styled : base;
+  return pool[Math.floor(h / 3) % pool.length];
 }

@@ -49,13 +49,16 @@ self.addEventListener('push', e => {
     tag: d.tag || undefined,
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
-    data: { url: d.url || '/' }
+    // Buttons on the notification where the phone shows them (Android, desktop). iPhone opens the default.
+    actions: (d.actions || []).slice(0, 2).map(a => ({ action: a.action, title: a.title })),
+    data: { url: d.url || '/', actions: Object.fromEntries((d.actions || []).map(a => [a.action, a.url])) }
   }));
 });
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  const url = new URL(e.notification.data?.url || '/', self.location.origin).href;
+  const target = (e.action && e.notification.data?.actions?.[e.action]) || e.notification.data?.url || '/';
+  const url = new URL(target, self.location.origin).href;
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
     const open = list.find(c => c.url.startsWith(self.location.origin));
     if (open) return open.navigate(url).then(c => (c || open).focus());

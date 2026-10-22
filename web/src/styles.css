@@ -788,3 +788,12 @@ html.kb-open .app.has-dock { --tabbar-h: 0px; }
 
 /* People only mentioned in a note */
 .mentioned-chips { margin-top: 6px; align-items: center; }
+
+/* ---------- inspiration (Settings → About you) ---------- */
+.insp-list { list-style: none; margin: 0 0 10px; padding: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.insp-item { display: flex; align-items: center; gap: 6px; padding: 10px 8px 10px 14px; }
+.insp-item + .insp-item { border-top: 1px solid var(--line); }
+.insp-item b { display: block; font-size: 15px; }
+.insp-item small { display: flex; align-items: center; gap: 6px; }
+.guide-list { margin: 6px 0 0; padding-left: 20px; font-size: 16px; line-height: 1.5; }
+.guide-list li + li { margin-top: 2px; }

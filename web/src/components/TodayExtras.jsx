@@ -69,6 +69,7 @@ export function PracticeCard({ practice, moment, top, onChange, notify }) {
           <span className="eyebrow">A thought for today</span>
           <q>{p.quote.text}</q>
           <cite>{p.quote.who}, {p.quote.url ? <a href={p.quote.url} target="_blank" rel="noopener noreferrer">{p.quote.work}</a> : p.quote.work}</cite>
+          {p.quote.ai && <small className="muted" style={{ display: 'block', marginTop: 4 }}>Picked by AI from your inspiration. Check it before you share it.</small>}
         </figure>
       )}
       {kinds.length > 1 && (

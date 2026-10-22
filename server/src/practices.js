@@ -5,6 +5,7 @@
 // researchers credited below. No text from their books is reproduced.
 import { db, now, getSettings } from './db.js';
 import { chosenStyles, quoteForDay, STYLES } from './leadership.js';
+import { packOf, activePacks, customItems } from './inspiration.js';
 import { agenda } from './agenda.js';
 import { local, startOfLocalDay, addDays } from './localtime.js';
 
@@ -234,6 +235,13 @@ export const PRACTICES = [
 ];
 const BY_ID = Object.fromEntries(PRACTICES.map(p => [p.id, p]));
 
+/** What's in play: the always-on practices, built-in sets you've turned on, and your AI-built ones. */
+function available() {
+  const packs = activePacks();
+  return [...PRACTICES.filter(p => !packOf(p.source) || packs.has(packOf(p.source))), ...customItems('practice').map(p => ({ ...p, mine: true }))];
+}
+const practiceById = id => BY_ID[id] || (String(id).startsWith('insp:') ? customItems('practice').find(p => p.id === id) : null);
+
 // One practice per local day (practice_log, migration 16); "Another" swaps it. The day picks from
 // what fits, avoiding ones from the last three weeks.
 const hash = s => { let h = 2166136261; for (const c of s) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
@@ -252,9 +260,16 @@ function choose(ymd, swaps, convs, exclude = []) {
   // Your leadership styles (Settings → About you) make matching practices about twice as likely.
   const styles = chosenStyles(getSettings().profile);
   const base = p => p.fit === 'talk' ? (convs.length ? 3 : 0) : p.fit === 'busy' ? (busy ? 3 : 1) : 2;
-  const weight = p => base(p) && (styles.length && (p.styles || []).some(x => styles.includes(x)) ? base(p) * 2 + 1 : base(p));
-  let pool = PRACTICES.filter(p => weight(p) && !recent.has(p.id) && !exclude.includes(p.id));
-  if (!pool.length) pool = PRACTICES.filter(p => weight(p) && !exclude.includes(p.id));
+  // Ones from your own inspiration (Settings → About you) come up more often, too.
+  const weight = p => {
+    let w = base(p);
+    if (w && styles.length && (p.styles || []).some(x => styles.includes(x))) w = w * 2 + 1;
+    if (w && (p.mine || packOf(p.source))) w *= 2;
+    return w;
+  };
+  const all = available();
+  let pool = all.filter(p => weight(p) && !recent.has(p.id) && !exclude.includes(p.id));
+  if (!pool.length) pool = all.filter(p => weight(p) && !exclude.includes(p.id));
   const tickets = pool.flatMap(p => Array(weight(p)).fill(p));
   return tickets[hash(`${ymd}:${swaps}`) % tickets.length];
 }
@@ -267,13 +282,13 @@ function contextFor(p, convs) {
 }
 
 const shape = (row, convs) => {
-  const p = BY_ID[row.practice_id] || PRACTICES[0];
+  const p = practiceById(row.practice_id) || PRACTICES[0];
   const profile = getSettings().profile;
   const mine = chosenStyles(profile);
   const fits = (p.styles || []).filter(x => mine.includes(x)).map(x => STYLES[x].label);
   const q = quoteForDay(row.day, profile);
   return { day: row.day, id: p.id, title: p.title, how: p.how, source: p.source, fits, done_at: row.done_at || null, try_in: contextFor(p, convs),
-    quote: q && { text: q.text, who: q.who, work: q.work, url: q.url || null } };
+    quote: q && { text: q.text, who: q.who, work: q.work, url: q.url || null, ai: !!q.ai } };
 };
 
 /** Today's practice (picked on first look today). */
@@ -309,5 +324,5 @@ export function markPractice(done) {
 /** Today's practice, if one was picked, for the end-of-day note. */
 export function practiceForDay(ymd = local().ymd) {
   const row = db.prepare('SELECT * FROM practice_log WHERE day = ?').get(ymd);
-  return row ? { ...BY_ID[row.practice_id], done_at: row.done_at } : null;
+  return row ? { ...(practiceById(row.practice_id) || {}), done_at: row.done_at } : null;
 }

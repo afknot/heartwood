@@ -24,6 +24,7 @@ import { ai } from './routes/ai.js';
 import { settings } from './routes/settings.js';
 import { career } from './routes/career.js';
 import { live } from './routes/live.js';
+import { inspiration, resumeInspirations } from './routes/inspiration.js';
 import { resumeJobs } from './jobs.js';
 import { backfillRoles } from './roles.js';
 import { AIError } from './llm.js';
@@ -97,6 +98,7 @@ app.use('/api', settings);
 app.use('/api', career);
 app.use('/api', talk);
 app.use('/api', live);
+app.use('/api', inspiration);
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 
 app.use((err, req, res, next) => {
@@ -134,6 +136,7 @@ startInviteChecks();
 startNotifications();
 startSnapshots();
 // Tell who you were with from who was only mentioned, for older 1:1 recordings (runs once).
+setTimeout(() => { try { resumeInspirations(); } catch (err) { console.error('[inspiration]', err.message); } }, 8000);
 setTimeout(() => { try { const r = backfillRoles(); if (r.fixed || r.renamed) console.log(`[roles] mentioned-only people in ${r.fixed} recordings; renamed ${r.renamed}`); } catch (err) { console.error('[roles]', err.message); } }, 5000);
 
 const server = app.listen(config.port, () => console.log(`Heartwood listening on :${config.port}`));

@@ -6,7 +6,7 @@ import { useApp } from '../lib/context.js';
 import { formatDate } from '../lib/format.js';
 import { lastReflect } from '../components/ReflectNav.jsx';
 import { AIKeys, KeyField, useConnections } from '../components/Connections.jsx';
-import { StylePicker } from '../components/LeadershipStyles.jsx';
+import { StylePicker, InspirationPicker } from '../components/LeadershipStyles.jsx';
 import { CalendarSettings, InviteSettings, NotificationSettings, PasskeySettings, BackupSettings, UpdateSettings } from '../components/SecuritySettings.jsx';
 
 const AI = { anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini' };
@@ -110,6 +110,7 @@ export default function Settings() {
         <label className="field"><span>Your team</span><textarea className="textarea" value={s.profile.team} onChange={prof('team')} placeholder="Size, what they do, where they are as a team" /></label>
         <label className="field"><span>Current goals</span><textarea className="textarea" value={s.profile.goals} onChange={prof('goals')} placeholder="What you and the team are trying to achieve right now" /></label>
         <StylePicker value={s.profile.leadership_styles} onChange={v => update({ profile: { ...s.profile, leadership_styles: v } })} />
+        <InspirationPicker />
         <label className="field"><span>In your own words</span><textarea className="textarea" value={s.profile.leadership_aspirations} onChange={prof('leadership_aspirations')} placeholder="e.g. Give my leads more room to decide, more direct with feedback, calmer under pressure" /></label>
         <p className="small muted">Your manager is whoever you’ve marked as <i>Manager</i> in People. Follow-ups from conversations with them rank higher on Today.</p>
       </>}

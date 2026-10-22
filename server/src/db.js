@@ -432,6 +432,34 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_ai_usage_at ON ai_usage(at);
       ANALYZE;
     `);
+  },
+  // 23: your inspiration (shows, films, books, people) and the quotes and practices built from each.
+  () => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS inspirations (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'building', -- building | ready | error
+        note TEXT,
+        error TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS inspiration_items (
+        id TEXT PRIMARY KEY,
+        inspiration_id TEXT NOT NULL REFERENCES inspirations(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL,                      -- quote | practice
+        data TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_inspiration_items ON inspiration_items(inspiration_id, kind);
+    `);
+    // Journals that already had the built-in shows and films keep them, now as your own list.
+    if (db.prepare('SELECT 1 FROM entries LIMIT 1').get()) {
+      const t = new Date().toISOString();
+      const ins = db.prepare(`INSERT INTO inspirations(id, name, status, created_at, updated_at) VALUES (?, ?, 'building', ?, ?)`);
+      ['Star Trek', 'Parks and Recreation', '30 Rock', 'The Office', 'Movies from the ’80s, ’90s and 2000s'].forEach((n, i) => ins.run(crypto.randomUUID(), n, new Date(Date.parse(t) + i).toISOString(), t));
+    }
   }
 ];
 {
