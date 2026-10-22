@@ -11,6 +11,66 @@ import { AgendaBuilder } from './Agenda.jsx';
 
 const PRIO = { high: 'Important' };
 
+// Dates as YYYY-MM-DD in your own time zone.
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const plus = n => { const d = new Date(); d.setDate(d.getDate() + n); return ymd(d); };
+const nextWeekday = wd => { const d = new Date(); d.setDate(d.getDate() + (((wd - d.getDay()) + 7) % 7 || 7)); return ymd(d); };
+const QUICK_DATES = [['Today', () => plus(0)], ['Tomorrow', () => plus(1)], ['Friday', () => nextWeekday(5)], ['Next Monday', () => nextWeekday(1)], ['In 2 weeks', () => plus(14)]];
+const isYmd = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
+
+/** Change a follow-up: the wording, who it's with, whose it is, and when it's due. */
+export function EditFollowupSheet({ f, open, onClose, onSaved }) {
+  const { people, notify } = useApp();
+  const [text, setText] = useState(f.text);
+  const [personId, setPersonId] = useState(f.person_id || '');
+  const [mine, setMine] = useState(f.mine !== false);
+  const [due, setDue] = useState(f.due || '');
+  const [busy, setBusy] = useState(false);
+  const person = people.find(p => p.id === personId);
+  async function save(e) {
+    e?.preventDefault();
+    if (!text.trim()) return;
+    setBusy(true);
+    try {
+      await api.patch(`/followups/${f.id}`, { text: text.trim(), person_id: personId || null, owner: mine || !person ? 'me' : person.name, due });
+      notify('Saved'); onSaved?.(); onClose();
+    } catch (x) { notify(x.message); }
+    finally { setBusy(false); }
+  }
+  return (
+    <Sheet open={open} onClose={onClose} title="Edit follow-up">
+      <form onSubmit={save}>
+        <label className="field"><span>What needs to happen</span>
+          <textarea className="textarea" rows={3} value={text} onChange={e => setText(e.target.value)} autoFocus />
+        </label>
+        <label className="field"><span>Who it’s with</span>
+          <select className="input" value={personId} onChange={e => setPersonId(e.target.value)}>
+            <option value="">No one in particular</option>
+            {people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </label>
+        {person && (
+          <div className="seg mb" role="radiogroup" aria-label="Whose is it">
+            <button type="button" role="radio" aria-checked={mine} className={mine ? 'on' : ''} onClick={() => setMine(true)}>Mine to do</button>
+            <button type="button" role="radio" aria-checked={!mine} className={!mine ? 'on' : ''} onClick={() => setMine(false)}>Waiting on {person.name.split(' ')[0]}</button>
+          </div>
+        )}
+        <div className="field"><span>Due</span>
+          <div className="row" style={{ gap: 8 }}>
+            <input className="input" type="date" value={isYmd(due) ? due : ''} onChange={e => setDue(e.target.value)} aria-label="Due date" />
+            {due && <button type="button" className="btn small ghost" onClick={() => setDue('')}>No date</button>}
+          </div>
+          {due && !isYmd(due) && <small>From your note: “{due}”. Pick a date to replace it.</small>}
+          <div className="chips" style={{ marginTop: 6 }}>
+            {QUICK_DATES.map(([label, fn]) => { const v = fn(); return <button type="button" key={label} className={`chip${due === v ? ' on' : ''}`} onClick={() => setDue(v)}>{label}</button>; })}
+          </div>
+        </div>
+        <button className="btn primary block" disabled={busy || !text.trim()}>{busy ? <span className="spinner" /> : 'Save'}</button>
+      </form>
+    </Sheet>
+  );
+}
+
 /**
  * One open loop: tick it off, see where it came from, or dismiss it.
  * `selecting`: the tick becomes a selection box. `archived`: shows Restore instead.
@@ -21,6 +81,7 @@ export function FollowupItem({ f, onChange, showPerson = true, selecting = false
   const [done, setDone] = useState(!!f.done_at);
   const [responding, setResponding] = useState(false);
   const [lettingGo, setLettingGo] = useState(false);
+  const [editing, setEditing] = useState(false);
   const ids = [f.id, ...(f.also || [])];
   async function letGo(reason) {
     setLettingGo(false);
@@ -63,7 +124,9 @@ export function FollowupItem({ f, onChange, showPerson = true, selecting = false
         </button>
       )}
       <div className="grow" style={{ color: done || archived ? 'var(--ink-3)' : undefined }}>
-        <span style={{ textDecoration: done && !selecting ? 'line-through' : 'none' }}>{f.text}</span>
+        {!archived && !selecting && !done
+          ? <button type="button" className="todo-text" onClick={() => setEditing(true)} title="Edit">{f.text}</button>
+          : <span style={{ textDecoration: done && !selecting ? 'line-through' : 'none' }}>{f.text}</span>}
         {showPrio && (
           <div className="prio-line">
             {PRIO[f.priority] && <span className={`prio ${f.priority}`}><span className="sr-only">Priority: </span>{PRIO[f.priority]}</span>}
@@ -78,6 +141,7 @@ export function FollowupItem({ f, onChange, showPerson = true, selecting = false
       {archived
         ? <button className="btn small ghost" onClick={restore}>Restore</button>
         : !selecting && !done && <>
+          <button className="icon-btn" onClick={() => setEditing(true)} aria-label="Edit" title="Edit the wording, person or date"><Icon name="edit" size={15} /></button>
           <button className="icon-btn" onClick={() => setResponding(true)} aria-label="Respond" title="Say what’s happening"><Icon name="ask" size={15} /></button>
           <button className="icon-btn" onClick={() => setLettingGo(!lettingGo)} aria-label="Let it go" aria-expanded={lettingGo} title="Let it go"><Icon name="x" size={14} /></button>
         </>}
@@ -90,6 +154,7 @@ export function FollowupItem({ f, onChange, showPerson = true, selecting = false
           <button className="chip" onClick={() => setLettingGo(false)} aria-label="Cancel"><Icon name="x" size={12} /></button>
         </div>
       )}
+      {editing && <EditFollowupSheet f={f} open onClose={() => setEditing(false)} onSaved={() => onChange?.()} />}
       {responding && <RespondSheet open onClose={() => setResponding(false)} followup={f} onApplied={() => onChange?.()} />}
     </div>
   );

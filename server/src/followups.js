@@ -249,3 +249,57 @@ export function findSource(followupId) {
     quotes: pool.where === 'note' ? pool.parts.slice(i, i + span) : [quote],
     quote: quote.slice(0, 600), confident: best.cover >= 0.5 };
 }
+
+// ---------- quick add: type or say a few to-dos at once ----------
+const QUICK_SYSTEM = (today, people) => `You turn a busy manager's quick list of to-dos into separate follow-up items. They typed or said them in a hurry.
+
+Today is ${today}.
+People they work with: ${people.length ? people.map(p => p.name).join(', ') : '(none listed)'}
+
+For each distinct task:
+- "text": the task as a short action, in their words, cleaned up (no filler like "um" or "I need to"). Under 120 characters.
+- "person": who it's with or about, using the exact name from the list when one matches, else "".
+- "mine": true if the manager has to do it; false if they're waiting on someone else ("Sam owes me the budget").
+- "due": the day as YYYY-MM-DD when they gave one ("Friday", "tomorrow", "by the 30th"), else "".
+
+Split run-on speech into separate tasks. Don't invent tasks or details. Return JSON only: {"items":[{"text":"...","person":"","mine":true,"due":""}]}`;
+
+/** Lines, bullets or semicolons: the fallback when there's no AI to split them. */
+const splitLines = text => String(text).split(/\n+|;\s*/).map(s => s.replace(/^\s*(?:[•*-]|\d+[.)])\s+/, '').trim()).filter(s => s.length > 1);
+
+export async function quickAdd(text, { complete, hasAI }) {
+  const raw = String(text || '').trim().slice(0, 4000);
+  if (!raw) throw Object.assign(new Error('Write or say what you need to do.'), { status: 400 });
+  const people = db.prepare('SELECT id, name FROM people ORDER BY name').all();
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: process.env.TZ || 'America/New_York', weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  let items = null;
+  if (hasAI) {
+    try {
+      const out = await complete({ system: QUICK_SYSTEM(today, people), messages: [{ role: 'user', content: raw }], json: true, maxTokens: 1200, task: 'quick add' });
+      items = (Array.isArray(out?.items) ? out.items : []).filter(i => String(i?.text || '').trim());
+    } catch { items = null; }
+  }
+  if (!items?.length) items = splitLines(raw).map(t => ({ text: t, person: '', mine: true, due: '' }));
+  const byName = n => { const x = norm(n); return x ? people.find(p => norm(p.name) === x) || people.find(p => norm(p.name).split(' ')[0] === x.split(' ')[0]) : null; };
+  const ins = db.prepare(`INSERT INTO followups(id, entry_id, person_id, text, owner, due, source, created_at) VALUES (?, NULL, ?, ?, ?, ?, 'manual', ?)`);
+  const ids = [];
+  db.transaction(() => {
+    for (const i of items.slice(0, 20)) {
+      const p = byName(i.person);
+      const mine = i.mine !== false || !p;
+      const id = newId();
+      ins.run(id, p?.id || null, String(i.text).trim().slice(0, 500), mine ? 'me' : p.name, /^\d{4}-\d{2}-\d{2}$/.test(i.due || '') ? i.due : '', now());
+      ids.push(id);
+    }
+  })();
+  const open = listFollowups({ status: 'open', limit: 1000 });
+  return { ids, added: ids.map(id => open.find(f => f.id === id)).filter(Boolean) };
+}
+
+/** Take back a quick add (only items you added by hand and haven't touched). */
+export function undoQuickAdd(ids = []) {
+  const del = db.prepare(`DELETE FROM followups WHERE id = ? AND source = 'manual' AND entry_id IS NULL`);
+  let n = 0;
+  db.transaction(() => { for (const id of ids.slice(0, 50)) n += del.run(String(id)).changes; })();
+  return { removed: n };
+}

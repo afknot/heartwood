@@ -8,13 +8,15 @@ import { removePending } from '../lib/pending.js';
 import { Recording, listMics, micError, openMic, meter, canShareTabAudio } from '../lib/recorder.js';
 import { useApp } from '../lib/context.js';
 import { LiveCoach } from '../lib/live.js';
+import { QuickAdd } from '../components/QuickAdd.jsx';
 import { duration } from '../lib/format.js';
 
 const KIND_OPTS = [
   { k: 'memo', label: 'Voice memo', icon: 'mic' },
   { k: 'one_on_one', label: '1:1', icon: 'people' },
   { k: 'conversation', label: 'Conversation', icon: 'ask' },
-  { k: 'meeting', label: 'Meeting', icon: 'journal' }
+  { k: 'meeting', label: 'Meeting', icon: 'journal' },
+  { k: 'todo', label: 'To-dos', icon: 'check' }
 ];
 const uuid = () => crypto.randomUUID?.() || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
   const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16);
@@ -346,13 +348,13 @@ export default function Record() {
     <main className="page no-tabs">
       <div className="topbar">
         <button className="icon-btn" onClick={() => nav(-1)} aria-label="Back"><Icon name="back" /></button>
-        <h1 style={{ fontSize: 24 }}>New recording</h1>
+        <h1 style={{ fontSize: 24 }}>{kind === 'todo' ? 'Add to-dos' : 'New recording'}</h1>
       </div>
 
       {!secure && <div className="banner error" role="alert">The microphone only works over HTTPS. Open Heartwood from its https:// address.</div>}
       {secure && !supported && <div className="banner error" role="alert">This browser can’t record audio. Update iOS/Android or try another browser.</div>}
 
-      <div className="field"><span>What are you recording?</span>
+      <div className="field"><span>{kind === 'todo' ? 'What are you adding?' : 'What are you recording?'}</span>
         <div className="kind-grid">
           {KIND_OPTS.map(o => (
             <button key={o.k} className={`kind-opt${kind === o.k ? ' on' : ''}`} onClick={() => setKind(o.k)}>
@@ -362,6 +364,7 @@ export default function Record() {
         </div>
       </div>
 
+      {kind === 'todo' ? <QuickAdd showOnToday /> : <>
       {kind !== 'memo' && (
         <div className="field"><span>Who’s in it?</span>
           <div className="chips">
@@ -409,6 +412,7 @@ export default function Record() {
       <button className="btn rec block mt-l" style={{ minHeight: 56, fontSize: 17 }} onClick={start} disabled={!consent || !supported || !secure}>
         <Icon name="mic" /> Start recording
       </button>
+      </>}
 
       <PeoplePicker open={picker} onClose={() => setPicker(false)} selected={who} onChange={setWho} />
     </main>

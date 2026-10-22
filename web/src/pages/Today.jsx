@@ -10,6 +10,7 @@ import { MeetingSheet } from '../components/MeetingSheet.jsx';
 import { useApp } from '../lib/context.js';
 import { PracticeCard, WeekCard } from '../components/TodayExtras.jsx';
 import Sheet from '../components/Sheet.jsx';
+import { QuickAddSheet } from '../components/QuickAdd.jsx';
 
 const eodTitle = () => `End of day · ${new Date().toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}`;
 const eodRecord = () => `/record?kind=memo&guide=day&title=${encodeURIComponent(eodTitle())}`;
@@ -83,6 +84,7 @@ export default function Today() {
   }
   // From the notification: ask how you'd like to reflect (write or say it). "write" goes straight to the note.
   const [eodChoice, setEodChoice] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
   useEffect(() => {
     const r = params.get('reflect');
     if (r !== 'day' && r !== 'write') return;
@@ -133,6 +135,8 @@ export default function Today() {
           <h1 className="today-head">{greeting()}</h1>
         </div>
       </div>
+
+      <QuickAddSheet open={addOpen} onClose={() => setAddOpen(false)} onAdded={() => load()} />
 
       <Sheet open={eodChoice} onClose={() => setEodChoice(false)} title="End of day">
         <p className="muted" style={{ marginTop: 0 }}>Two minutes: what went well, how you showed up, what to carry into tomorrow.</p>
@@ -221,6 +225,7 @@ export default function Today() {
 
       {/* ---------- Follow-ups ---------- */}
       <div className="section-head"><Icon name="check" size={20} /><h2>Follow-ups</h2>
+        {!selecting && <button className="btn ghost small" onClick={() => setAddOpen(true)}><Icon name="plus" size={15} /> Add</button>}
         {list.length > 0 && !selecting && <button className="btn ghost small" onClick={() => setUpdateOpen(true)}>Give an update</button>}
         {list.length > 0 && <button className="btn ghost small" onClick={() => (selecting ? stopSelecting() : setSelecting(true))}>{selecting ? 'Cancel' : 'Select'}</button>}
       </div>

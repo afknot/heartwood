@@ -1,7 +1,8 @@
 import express from 'express';
+import { config } from '../config.js';
 import { db, newId, now, getSettings, listPeople } from '../db.js';
 import { getAttachments } from '../ask.js';
-import { listFollowups, findSource, tidyPlan, tidyApply, restoreFollowups, bulkFollowups, oldOpenCount, letGo } from '../followups.js';
+import { quickAdd, undoQuickAdd, listFollowups, findSource, tidyPlan, tidyApply, restoreFollowups, bulkFollowups, oldOpenCount, letGo } from '../followups.js';
 import { goodMoment } from '../moments.js';
 import { addContext } from '../context.js';
 import { local, startOfLocalDay } from '../localtime.js';
@@ -290,6 +291,13 @@ today.post('/followups', (req, res) => {
     .run(id, req.body.entry_id || null, req.body.person_id || null, text.slice(0, 500), String(req.body.owner || 'me').slice(0, 100), String(req.body.due || '').slice(0, 100), now());
   res.status(201).json(listFollowups({ status: 'open' }).find(f => f.id === id));
 });
+
+// Several to-dos at once, typed or said ("send Maya the deck by Friday, book the offsite…").
+today.post('/followups/quick', async (req, res, next) => {
+  try { res.status(201).json(await quickAdd(req.body?.text, { complete, hasAI: !!config.keys[getSettings().ai_provider] })); }
+  catch (err) { if (err.status) return res.status(err.status).json({ error: err.message }); next(err); }
+});
+today.post('/followups/quick/undo', (req, res) => res.json(undoQuickAdd(Array.isArray(req.body?.ids) ? req.body.ids : [])));
 
 today.patch('/followups/:id', (req, res) => {
   const f = db.prepare('SELECT * FROM followups WHERE id = ?').get(req.params.id);
