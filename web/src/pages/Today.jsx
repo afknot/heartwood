@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import Icon from '../components/Icon.jsx';
 import Avatar from '../components/Avatar.jsx';
-import { FollowupItem, AddFollowup, PrepSheet, TidySheet, RespondSheet } from '../components/Followups.jsx';
+import { FollowupItem, PrepSheet, TidySheet, RespondSheet } from '../components/Followups.jsx';
 import { formatDate } from '../lib/format.js';
 import { OccurrenceSheet, theirTimes } from '../components/Occurrence.jsx';
 import { MeetingSheet } from '../components/MeetingSheet.jsx';
@@ -225,9 +225,9 @@ export default function Today() {
 
       {/* ---------- Follow-ups ---------- */}
       <div className="section-head"><Icon name="check" size={20} /><h2>Follow-ups</h2>
-        {!selecting && <button className="btn ghost small" onClick={() => setAddOpen(true)}><Icon name="plus" size={15} /> Add</button>}
-        {list.length > 0 && !selecting && <button className="btn ghost small" onClick={() => setUpdateOpen(true)} title="Give an update: say what’s changed and Heartwood settles the follow-ups it affects">Update</button>}
-        {list.length > 0 && <button className="btn ghost small" onClick={() => (selecting ? stopSelecting() : setSelecting(true))}>{selecting ? 'Cancel' : 'Select'}</button>}
+        {selecting
+          ? <button className="btn ghost small" onClick={stopSelecting}>Cancel</button>
+          : <button className="btn ghost small" onClick={() => setAddOpen(true)}><Icon name="plus" size={15} /> Add</button>}
       </div>
       <div className="card" style={{ padding: '10px 16px' }}>
         {lastTidy ? (
@@ -272,8 +272,10 @@ export default function Today() {
             <button className="btn small" disabled={!picked.size} onClick={() => bulk('archive')}>Archive</button>
             <button className="btn small primary" disabled={!picked.size} onClick={() => bulk('done')}>Mark done</button>
           </div>
-        ) : tab === 'mine' && <AddFollowup onAdded={load} />}
-        {!selecting && <div className="row" style={{ gap: 4, marginTop: 6 }}>
+        ) : null}
+        {!selecting && <div className="row wrap" style={{ gap: 4, marginTop: 6 }}>
+          {list.length > 0 && <button className="btn ghost small" onClick={() => setUpdateOpen(true)} title="Say what’s changed and Heartwood settles the follow-ups it affects">Give an update</button>}
+          {list.length > 0 && <button className="btn ghost small" onClick={() => setSelecting(true)}>Select</button>}
           <button className="btn ghost small" onClick={showDone}>{done ? 'Hide done' : 'Show done'}</button>
           <button className="btn ghost small" onClick={showArchived}>{archived ? 'Hide archived' : 'Show archived'}</button>
         </div>}
