@@ -86,7 +86,7 @@ export function InspirationPicker() {
   const status = i => i.status === 'building' ? <><span className="spinner" /> Building quotes and things to try…</>
     : i.status === 'error' ? <span style={{ color: 'var(--rec-text)' }}>Couldn’t build this one: {i.error}</span>
       : i.quotes + i.practices === 0 ? (i.note || (i.pack ? 'Uses Heartwood’s built-in set' : 'Nothing to build from this one'))
-        : `${i.quotes} quote${i.quotes === 1 ? '' : 's'} · ${i.practices} thing${i.practices === 1 ? '' : 's'} to try${i.pack ? ', plus Heartwood’s built-in set' : ''}`;
+        : `${i.quotes} quote${i.quotes === 1 ? '' : 's'} · ${i.practices} thing${i.practices === 1 ? '' : 's'} to try${i.pack ? ', plus Heartwood’s built-in set' : ''}${i.note ? `. ${i.note}` : ''}`;
   if (!list) return null;
   const taken = new Set(list.map(i => i.name.toLowerCase()));
   return (

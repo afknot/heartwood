@@ -110,7 +110,15 @@ export async function buildInspiration(id, { builtinQuotes = [], builtinPractice
       ...builtinPractices.filter(p => packOf(p.source) === pack).map(p => `- Practice already included: ${p.title}`)
     ] : [];
     const user = `Source: ${row.name}${known.length ? `\n\nHeartwood already has these from it; add different ones:\n${known.join('\n')}` : ''}`;
-    const out = await complete({ system: SYSTEM(getSettings().profile), messages: [{ role: 'user', content: user }], json: true, maxTokens: 3500, task: 'inspiration' });
+    const ask = content => complete({ system: SYSTEM(getSettings().profile), messages: [{ role: 'user', content }], json: true, maxTokens: 3500, task: 'inspiration' });
+    let out, quotesSkipped = false;
+    try { out = await ask(user); }
+    catch (err) {
+      // Providers sometimes refuse to repeat lines from a show or book. Try again with practices only.
+      if (!/content filter|blocked|recitation|copyright/i.test(err.message)) throw err;
+      out = await ask(`${user}\n\nThis time, return an empty "quotes" list: practices only.`);
+      quotesSkipped = true;
+    }
     const styles = v => (Array.isArray(v) ? v : []).filter(s => STYLE_IDS.includes(s)).slice(0, 2);
     const label = clean(out?.label, 80) || row.name;
     const seen = new Set(builtinQuotes.map(q => norm(q.text)));
@@ -120,7 +128,7 @@ export async function buildInspiration(id, { builtinQuotes = [], builtinPractice
       .slice(0, 8);
     const practices = (Array.isArray(out?.practices) ? out.practices : [])
       .map(p => ({ title: clean(p.title, 90), how: clean(p.how, 420), fit: ['talk', 'busy', 'any'].includes(p.fit) ? p.fit : 'any', styles: styles(p.styles),
-        source: clean(p.from, 120) ? `${label}, ${clean(p.from, 120)}` : label }))
+        source: !clean(p.from, 120) ? label : clean(p.from, 120).toLowerCase().includes(label.toLowerCase()) ? clean(p.from, 120) : `${label}, ${clean(p.from, 120)}` }))
       .filter(p => p.title && p.how).slice(0, 10);
     const note = clean(out?.note, 300);
     const ins = db.prepare('INSERT INTO inspiration_items(id, inspiration_id, kind, data, created_at) VALUES (?, ?, ?, ?, ?)');
@@ -129,7 +137,7 @@ export async function buildInspiration(id, { builtinQuotes = [], builtinPractice
       for (const q of quotes) ins.run(newId(), id, 'quote', JSON.stringify(q), now());
       for (const p of practices) ins.run(newId(), id, 'practice', JSON.stringify(p), now());
       db.prepare(`UPDATE inspirations SET status = 'ready', note = ?, error = NULL, updated_at = ? WHERE id = ?`)
-        .run(!quotes.length && !practices.length ? (note || 'Nothing to build from this one.') : note || null, now(), id);
+        .run(!quotes.length && !practices.length ? (note || 'Nothing to build from this one.') : quotesSkipped ? 'The AI wouldn’t pick quotes for this one, so it’s things to try only.' : note || null, now(), id);
     })();
   } catch (err) {
     db.prepare(`UPDATE inspirations SET status = 'error', error = ?, updated_at = ? WHERE id = ?`).run(clean(err.message, 240), now(), id);
