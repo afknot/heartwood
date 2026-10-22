@@ -92,7 +92,7 @@ Build a small set for their private leadership journal:
    - A line from a comic character can be an example of what not to do; say so in "work", e.g. "The Office (a cautionary tale)".
 3. "label": the source's usual name, properly spelled.
 
-If the source is a private individual, or isn't a fit for learning about leadership, return empty lists and explain kindly in "note".
+If the source is a private individual, or isn't a fit for learning about leadership, return empty lists and explain kindly in "note". Otherwise leave "note" empty, unless the writer needs to know something; then one short sentence about the set, under 18 words, not about yourself (e.g. "No quotes: none could be confirmed word for word.").
 
 Return JSON only: {"label":"...","practices":[...],"quotes":[...],"note":""}`;
 
@@ -130,7 +130,7 @@ export async function buildInspiration(id, { builtinQuotes = [], builtinPractice
       .map(p => ({ title: clean(p.title, 90), how: clean(p.how, 420), fit: ['talk', 'busy', 'any'].includes(p.fit) ? p.fit : 'any', styles: styles(p.styles),
         source: !clean(p.from, 120) ? label : clean(p.from, 120).toLowerCase().includes(label.toLowerCase()) ? clean(p.from, 120) : `${label}, ${clean(p.from, 120)}` }))
       .filter(p => p.title && p.how).slice(0, 10);
-    const note = clean(out?.note, 300);
+    const note = clean(out?.note, 160);
     const ins = db.prepare('INSERT INTO inspiration_items(id, inspiration_id, kind, data, created_at) VALUES (?, ?, ?, ?, ?)');
     db.transaction(() => {
       db.prepare('DELETE FROM inspiration_items WHERE inspiration_id = ?').run(id);
