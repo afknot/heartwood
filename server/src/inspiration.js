@@ -66,6 +66,11 @@ export function removeInspiration(id) {
   return db.prepare('DELETE FROM inspirations WHERE id = ?').run(id).changes;
 }
 
+/** What was built from one source, to look over. */
+export const itemsFor = id => db.prepare('SELECT id, kind, data FROM inspiration_items WHERE inspiration_id = ? ORDER BY kind, created_at').all(id)
+  .map(r => { try { return { id: r.id, kind: r.kind, ...JSON.parse(r.data) }; } catch { return null; } }).filter(Boolean);
+export const removeItem = itemId => db.prepare('DELETE FROM inspiration_items WHERE id = ?').run(itemId).changes;
+
 export const markBuilding = id => db.prepare(`UPDATE inspirations SET status = 'building', error = NULL, updated_at = ? WHERE id = ?`).run(now(), id);
 
 // ---------- building a set with the AI ----------

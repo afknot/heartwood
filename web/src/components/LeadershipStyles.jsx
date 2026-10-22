@@ -41,8 +41,32 @@ const SUGGESTIONS = ['Ted Lasso', 'Abraham Lincoln', 'Apollo 13', 'Star Trek', '
  * Your inspiration: shows, films, books, people or eras you learn leadership from. Heartwood builds
  * quotes and things to try from each one in the background.
  */
+/** What one source built: quotes and things to try, each removable. */
+function InspirationItems({ id, onChanged }) {
+  const [items, setItems] = useState(null);
+  useEffect(() => { api.get(`/inspirations/${id}/items`).then(setItems).catch(() => setItems([])); }, [id]);
+  if (!items) return <p className="small muted">Loading…</p>;
+  if (!items.length) return <p className="small muted">Nothing extra built for this one.</p>;
+  const drop = async itemId => { onChanged(await api.del(`/inspirations/items/${itemId}`)); setItems(items.filter(i => i.id !== itemId)); };
+  return (
+    <ul className="insp-items">
+      {items.map(i => (
+        <li key={i.id}>
+          <div className="grow" style={{ minWidth: 0 }}>
+            {i.kind === 'quote'
+              ? <><q>{i.text}</q> <small className="muted">— {i.who}, {i.work}</small></>
+              : <><b>{i.title}</b> <small className="muted">{i.how}</small></>}
+          </div>
+          <button type="button" className="icon-btn" aria-label="Remove" onClick={() => drop(i.id)}><Icon name="x" size={14} /></button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function InspirationPicker() {
   const [list, setList] = useState(null);
+  const [open, setOpen] = useState(null);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -72,12 +96,15 @@ export function InspirationPicker() {
       {list.length > 0 && <ul className="insp-list">
         {list.map(i => (
           <li key={i.id} className="insp-item">
-            <div className="grow" style={{ minWidth: 0 }}>
+            <div className="insp-row">
+            <button type="button" className="grow insp-name" style={{ minWidth: 0 }} aria-expanded={open === i.id} disabled={i.status === 'building' || i.quotes + i.practices === 0} onClick={() => setOpen(open === i.id ? null : i.id)}>
               <b>{i.name}</b>
               <small className="muted" role={i.status === 'building' ? 'status' : undefined}>{status(i)}</small>
-            </div>
+            </button>
             {i.status !== 'building' && <button type="button" className="icon-btn" title="Build a fresh set" aria-label={`Build a fresh set from ${i.name}`} onClick={() => api.post(`/inspirations/${i.id}/rebuild`).then(setList).catch(e => setErr(e.message))}><Icon name="retry" size={16} /></button>}
             <button type="button" className="icon-btn" aria-label={`Remove ${i.name}`} onClick={() => api.del(`/inspirations/${i.id}`).then(setList).catch(e => setErr(e.message))}><Icon name="x" size={16} /></button>
+            </div>
+            {open === i.id && <InspirationItems id={i.id} onChanged={setList} />}
           </li>
         ))}
       </ul>}

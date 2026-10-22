@@ -791,7 +791,13 @@ html.kb-open .app.has-dock { --tabbar-h: 0px; }
 
 /* ---------- inspiration (Settings → About you) ---------- */
 .insp-list { list-style: none; margin: 0 0 10px; padding: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
-.insp-item { display: flex; align-items: center; gap: 6px; padding: 10px 8px 10px 14px; }
+.insp-item { padding: 10px 8px 10px 14px; }
+.insp-row { display: flex; align-items: center; gap: 6px; }
+.insp-name { background: none; border: 0; padding: 0; text-align: left; color: inherit; cursor: pointer; font: inherit; }
+.insp-name:disabled { cursor: default; }
+.insp-items { list-style: none; margin: 8px 0 2px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.insp-items li { display: flex; gap: 6px; align-items: flex-start; font-size: 14px; line-height: 1.4; }
+.insp-items small { display: block; }
 .insp-item + .insp-item { border-top: 1px solid var(--line); }
 .insp-item b { display: block; font-size: 15px; }
 .insp-item small { display: flex; align-items: center; gap: 6px; }

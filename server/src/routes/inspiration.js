@@ -4,7 +4,7 @@ import express from 'express';
 import { enqueue } from '../jobs.js';
 import { QUOTES } from '../leadership.js';
 import { PRACTICES } from '../practices.js';
-import { listInspirations, addInspiration, removeInspiration, markBuilding, buildInspiration, InspirationError } from '../inspiration.js';
+import { listInspirations, addInspiration, removeInspiration, markBuilding, buildInspiration, itemsFor, removeItem, InspirationError } from '../inspiration.js';
 import { db } from '../db.js';
 
 export const inspiration = express.Router();
@@ -24,4 +24,6 @@ inspiration.post('/inspirations', (req, res) => {
 inspiration.post('/inspirations/:id/rebuild', (req, res) => {
   markBuilding(req.params.id); build(req.params.id); res.json(listInspirations());
 });
+inspiration.get('/inspirations/:id/items', (req, res) => res.json(itemsFor(req.params.id)));
+inspiration.delete('/inspirations/items/:itemId', (req, res) => { removeItem(req.params.itemId); res.json(listInspirations()); });
 inspiration.delete('/inspirations/:id', (req, res) => { removeInspiration(req.params.id); res.json(listInspirations()); });
