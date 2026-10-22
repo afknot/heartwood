@@ -226,7 +226,7 @@ export default function Today() {
       {/* ---------- Follow-ups ---------- */}
       <div className="section-head"><Icon name="check" size={20} /><h2>Follow-ups</h2>
         {!selecting && <button className="btn ghost small" onClick={() => setAddOpen(true)}><Icon name="plus" size={15} /> Add</button>}
-        {list.length > 0 && !selecting && <button className="btn ghost small" onClick={() => setUpdateOpen(true)}>Give an update</button>}
+        {list.length > 0 && !selecting && <button className="btn ghost small" onClick={() => setUpdateOpen(true)} title="Give an update: say what’s changed and Heartwood settles the follow-ups it affects">Update</button>}
         {list.length > 0 && <button className="btn ghost small" onClick={() => (selecting ? stopSelecting() : setSelecting(true))}>{selecting ? 'Cancel' : 'Select'}</button>}
       </div>
       <div className="card" style={{ padding: '10px 16px' }}>
