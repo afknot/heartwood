@@ -19,7 +19,7 @@ const QUICK_DATES = [['Today', () => plus(0)], ['Tomorrow', () => plus(1)], ['Fr
 const isYmd = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
 
 /** Change a follow-up: the wording, who it's with, whose it is, and when it's due. */
-export function EditFollowupSheet({ f, open, onClose, onSaved }) {
+export function EditFollowupSheet({ f, open, onClose, onSaved, onRespond, onLetGo }) {
   const { people, notify } = useApp();
   const [text, setText] = useState(f.text);
   const [personId, setPersonId] = useState(f.person_id || '');
@@ -67,6 +67,17 @@ export function EditFollowupSheet({ f, open, onClose, onSaved }) {
         </div>
         <button className="btn primary block" disabled={busy || !text.trim()}>{busy ? <span className="spinner" /> : 'Save'}</button>
       </form>
+      {(onRespond || onLetGo) && <div className="fu-more">
+        {onRespond && <button type="button" className="btn block" onClick={() => { onClose(); onRespond(); }}><Icon name="ask" size={16} /> Give an update on it</button>}
+        {onLetGo && <>
+          <p className="small muted" style={{ margin: '12px 0 6px' }}>Let it go (it counts as handled):</p>
+          <div className="chips">
+            <button type="button" className="chip" onClick={() => { onClose(); onLetGo('decided'); }}>Decided not to</button>
+            <button type="button" className="chip" onClick={() => { onClose(); onLetGo('not_needed'); }}>No longer needed</button>
+            <button type="button" className="chip" onClick={() => { onClose(); onLetGo('not_real'); }}>Not a real follow-up</button>
+          </div>
+        </>}
+      </div>}
     </Sheet>
   );
 }
@@ -80,11 +91,9 @@ export function EditFollowupSheet({ f, open, onClose, onSaved }) {
 export function FollowupItem({ f, onChange, showPerson = true, selecting = false, selected = false, onSelect, archived = false }) {
   const [done, setDone] = useState(!!f.done_at);
   const [responding, setResponding] = useState(false);
-  const [lettingGo, setLettingGo] = useState(false);
   const [editing, setEditing] = useState(false);
   const ids = [f.id, ...(f.also || [])];
   async function letGo(reason) {
-    setLettingGo(false);
     if (reason === 'not_real') await api.post('/followups/bulk', { ids, action: 'dismiss' });
     else await api.post('/followups/let-go', { ids, reason });
     onChange?.();
@@ -125,7 +134,7 @@ export function FollowupItem({ f, onChange, showPerson = true, selecting = false
       )}
       <div className="grow" style={{ color: done || archived ? 'var(--ink-3)' : undefined }}>
         {!archived && !selecting && !done
-          ? <button type="button" className="todo-text" onClick={() => setEditing(true)} title="Edit">{f.text}</button>
+          ? <button type="button" className="todo-text" onClick={() => setEditing(true)} aria-haspopup="dialog" title="Edit, update or let it go">{f.text}</button>
           : <span style={{ textDecoration: done && !selecting ? 'line-through' : 'none' }}>{f.text}</span>}
         {showPrio && (
           <div className="prio-line">
@@ -140,21 +149,8 @@ export function FollowupItem({ f, onChange, showPerson = true, selecting = false
       </div>
       {archived
         ? <button className="btn small ghost" onClick={restore}>Restore</button>
-        : !selecting && !done && <>
-          <button className="icon-btn" onClick={() => setEditing(true)} aria-label="Edit" title="Edit the wording, person or date"><Icon name="edit" size={15} /></button>
-          <button className="icon-btn" onClick={() => setResponding(true)} aria-label="Respond" title="Say what’s happening"><Icon name="ask" size={15} /></button>
-          <button className="icon-btn" onClick={() => setLettingGo(!lettingGo)} aria-label="Let it go" aria-expanded={lettingGo} title="Let it go"><Icon name="x" size={14} /></button>
-        </>}
-      {lettingGo && (
-        <div className="letgo" role="group" aria-label="Let it go">
-          <span className="small muted letgo-label">Let it go. It counts as handled.</span>
-          <button className="chip" onClick={() => letGo('decided')}>Decided not to</button>
-          <button className="chip" onClick={() => letGo('not_needed')}>No longer needed</button>
-          <button className="chip" onClick={() => letGo('not_real')}>Not a real follow-up</button>
-          <button className="chip" onClick={() => setLettingGo(false)} aria-label="Cancel"><Icon name="x" size={12} /></button>
-        </div>
-      )}
-      {editing && <EditFollowupSheet f={f} open onClose={() => setEditing(false)} onSaved={() => onChange?.()} />}
+        : null}
+      {editing && <EditFollowupSheet f={f} open onClose={() => setEditing(false)} onSaved={() => onChange?.()} onRespond={() => setResponding(true)} onLetGo={letGo} />}
       {responding && <RespondSheet open onClose={() => setResponding(false)} followup={f} onApplied={() => onChange?.()} />}
     </div>
   );
