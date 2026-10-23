@@ -1,25 +1,16 @@
-import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { config, tmpDir } from './config.js';
 import { getSettings } from './db.js';
+import { runCommand, AUDIO_INPUT } from './proc.js';
 
 const CHUNK_SECONDS = 600; // 10-minute chunks keep every provider well under its upload limit
 
-function run(cmd, args) {
-  return new Promise((resolve, reject) => {
-    const p = spawn(cmd, args);
-    let out = '', err = '';
-    p.stdout.on('data', d => (out += d));
-    p.stderr.on('data', d => (err += d));
-    p.on('error', reject);
-    p.on('close', code => (code === 0 ? resolve(out) : reject(new Error(`${cmd} failed: ${err.slice(-400)}`))));
-  });
-}
+const run = (cmd, args, o = {}) => runCommand(cmd, args, { timeoutMs: 60000, ...o });
 
 export async function probeSeconds(file) {
   try {
-    const out = await run('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', file]);
+    const out = await run('ffprobe', ['-v', 'error', ...AUDIO_INPUT, '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', file]);
     const n = parseFloat(out);
     return Number.isFinite(n) ? n : null;
   } catch { return null; }
@@ -29,10 +20,11 @@ export async function probeSeconds(file) {
 export async function prepareChunks(file, workId) {
   const dir = path.join(tmpDir, workId);
   await fs.mkdir(dir, { recursive: true });
-  await run('ffmpeg', ['-y', '-hide_banner', '-loglevel', 'error', '-i', file,
+  // Long recordings take a while to convert on a home server; 40 minutes is plenty for hours of audio.
+  await run('ffmpeg', ['-y', '-hide_banner', '-loglevel', 'error', ...AUDIO_INPUT, '-i', file,
     '-vn', '-ac', '1', '-ar', '16000', '-b:a', '48k',
     '-f', 'segment', '-segment_time', String(CHUNK_SECONDS), '-reset_timestamps', '1',
-    path.join(dir, 'chunk_%03d.mp3')]);
+    path.join(dir, 'chunk_%03d.mp3')], { timeoutMs: 40 * 60000 });
   const files = (await fs.readdir(dir)).filter(f => f.endsWith('.mp3')).sort();
   return { dir, chunks: files.map(f => path.join(dir, f)) };
 }

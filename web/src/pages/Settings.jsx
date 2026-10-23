@@ -186,6 +186,7 @@ export default function Settings() {
         <PasskeySettings />
         <div className="mt" />
         <PasswordForm notify={notify} />
+        <SignedIn onEverywhere={() => { window.location.href = '/'; }} />
         <button className="btn block danger mt-l" onClick={logout}>Sign out</button>
       </>}
 
@@ -253,6 +254,24 @@ function AIUsage() {
       {u.by_task?.length > 0 && <ul className="small muted" style={{ margin: '8px 0 0', paddingLeft: 18 }}>
         {u.by_task.map(t => <li key={t.task}>{t.task[0].toUpperCase() + t.task.slice(1)}: {t.calls} · {tokens(t.input + t.cache_read)} in, {tokens(t.output)} out</li>)}
       </ul>}
+    </div>
+  );
+}
+
+/** How many devices are signed in, and a way to sign them all out (lost phone, shared computer). */
+function SignedIn({ onEverywhere }) {
+  const [n, setN] = useState(null);
+  useEffect(() => { api.get('/auth/sessions').then(r => setN(r.count)).catch(() => {}); }, []);
+  async function everywhere() {
+    if (!confirm('Sign out every device, including this one? You’ll sign in again here with your password or passkey.')) return;
+    await api.post('/auth/logout-everywhere').catch(() => {});
+    onEverywhere();
+  }
+  return (
+    <div className="card mt" style={{ padding: '12px 16px' }}>
+      <b>Signed-in devices</b>
+      <p className="small muted" style={{ margin: '4px 0 8px' }}>{n == null ? '…' : `${n} device${n === 1 ? '' : 's'} signed in, including this one.`} If you lose a phone or signed in somewhere you shouldn’t have, sign out everywhere.</p>
+      <button className="btn small danger" onClick={everywhere}>Sign out everywhere</button>
     </div>
   );
 }

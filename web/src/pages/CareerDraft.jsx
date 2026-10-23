@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import Icon from '../components/Icon.jsx';
 import { useApp } from '../lib/context.js';
-import { formatDate } from '../lib/format.js';
+import { formatDate, safeHref } from '../lib/format.js';
 
 /** Copy text, falling back to selecting it when the clipboard isn't available. */
 function CopyButton({ text, label = 'Copy' }) {
@@ -137,7 +137,7 @@ export default function CareerDraft() {
       )}
 
       {d.pr_url && (
-        <div className="banner info"><Icon name="check" size={18} /><span className="grow">Pull request opened. <a href={d.pr_url} target="_blank" rel="noreferrer">Review it on GitHub</a>. Merging puts it on your staging site.</span></div>
+        <div className="banner info"><Icon name="check" size={18} /><span className="grow">Pull request opened. <a href={safeHref(d.pr_url)} target="_blank" rel="noreferrer">Review it on GitHub</a>. Merging puts it on your staging site.</span></div>
       )}
 
       {d.kind === 'story' && (

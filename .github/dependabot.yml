@@ -1,0 +1,18 @@
+# GitHub watches Heartwood's dependencies for published vulnerabilities and opens a pull request
+# with the fix. Nothing merges on its own: review and merge, and your server updates as usual.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /server
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: npm
+    directory: /web
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: docker
+    directory: /
+    schedule: { interval: monthly }
+  - package-ecosystem: docker
+    directory: /deploy
+    schedule: { interval: monthly }

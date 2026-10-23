@@ -2,13 +2,20 @@ import crypto from 'node:crypto';
 import { db } from './db.js';
 import { config } from './config.js';
 
-const COOKIE = 'heartwood_session';
+// Over HTTPS the cookie gets the __Host- prefix: the browser then only accepts it from this exact
+// host, over HTTPS, for the whole site, so another subdomain can't plant or overwrite it.
+const COOKIE = config.cookieSecure ? '__Host-heartwood' : 'heartwood_session';
+const OLD_COOKIE = 'heartwood_session';
+const readCookie = req => req.cookies?.[COOKIE] || req.cookies?.[OLD_COOKIE] || '';
+const RECENT_MS = 10 * 60 * 1000; // a sign-in this recent counts as "you, just now" for sensitive changes
+const MAX_PW = 1024;
 const failures = new Map(); // ip -> { count, lockedUntil }
 const MIN_LENGTH = 12;
 
 // The password you set in the app is stored as a salted scrypt hash in its own
 // table (never returned by any API). Until you set one, APP_PASSWORD from .env is used.
 db.exec(`CREATE TABLE IF NOT EXISTS secrets (key TEXT PRIMARY KEY, value TEXT NOT NULL)`);
+if (!db.prepare('PRAGMA table_info(sessions)').all().some(c => c.name === 'created_at')) db.exec('ALTER TABLE sessions ADD COLUMN created_at INTEGER');
 
 const SCRYPT = { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 
@@ -37,18 +44,20 @@ export function passwordConfigured() {
 }
 
 function checkPassword(pw) {
+  if (String(pw || '').length > MAX_PW) return false; // no hashing megabytes of "password"
   const stored = storedHash();
   if (stored) return verifyHash(pw || '', stored);
   if (!envDigest) return false;
   return crypto.timingSafeEqual(crypto.scryptSync(String(pw || ''), 'heartwood-login', 32), envDigest);
 }
 
-// Also a server-wide brake, in case wrong guesses come from many addresses at once.
+// Also a server-wide brake on password guesses, in case they come from many addresses at once.
+// Passkeys can't be guessed, so they skip it: someone hammering the password can't lock you out.
 const recent = []; // timestamps of failures in the last hour
-function tooMany(req, res) {
+function tooMany(req, res, { global = true } = {}) {
   const t = Date.now();
   while (recent.length && recent[0] < t - 3600e3) recent.shift();
-  if (recent.length >= 50) {
+  if (global && recent.length >= 50) {
     res.status(429).json({ error: 'Too many sign-in attempts. Try again later.' });
     return true;
   }
@@ -60,8 +69,8 @@ function tooMany(req, res) {
   return false;
 }
 
-function recordFailure(req) {
-  recent.push(Date.now());
+function recordFailure(req, { global = true } = {}) {
+  if (global) recent.push(Date.now());
   if (failures.size > 10000) failures.clear(); // bound memory
   const f = failures.get(req.ip) || { count: 0, lockedUntil: 0 };
   f.count += 1;
@@ -74,8 +83,9 @@ const tokenHash = t => 'h:' + crypto.createHash('sha256').update(String(t)).dige
 function startSession(res) {
   const token = crypto.randomBytes(32).toString('base64url');
   const maxAge = config.sessionDays * 864e5;
-  db.prepare('INSERT INTO sessions(token, expires_at) VALUES (?, ?)').run(tokenHash(token), Date.now() + maxAge);
+  db.prepare('INSERT INTO sessions(token, expires_at, created_at) VALUES (?, ?, ?)').run(tokenHash(token), Date.now() + maxAge, Date.now());
   res.cookie(COOKIE, token, { httpOnly: true, secure: config.cookieSecure, sameSite: 'lax', maxAge, path: '/' });
+  if (COOKIE !== OLD_COOKIE) res.clearCookie(OLD_COOKIE, { path: '/' });
   return token;
 }
 
@@ -117,14 +127,45 @@ export function changePassword(req, res) {
 }
 
 export function logout(req, res) {
-  const t = req.cookies?.[COOKIE];
+  const t = readCookie(req);
   if (t) db.prepare('DELETE FROM sessions WHERE token IN (?, ?)').run(tokenHash(t), t);
-  res.clearCookie(COOKIE, { path: '/' });
+  res.clearCookie(COOKIE, { path: '/', secure: config.cookieSecure });
+  if (COOKIE !== OLD_COOKIE) res.clearCookie(OLD_COOKIE, { path: '/' });
   res.json({ ok: true });
 }
 
+/** Sign out every device, this one included. */
+export function logoutEverywhere(req, res) {
+  db.prepare('DELETE FROM sessions').run();
+  res.clearCookie(COOKIE, { path: '/', secure: config.cookieSecure });
+  if (COOKIE !== OLD_COOKIE) res.clearCookie(OLD_COOKIE, { path: '/' });
+  res.json({ ok: true });
+}
+
+/** How many devices are signed in right now. */
+export const sessionCount = () => db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE expires_at > ?').get(Date.now()).n;
+
+/**
+ * For changes that would let someone keep access (adding a passkey): you must have signed in in
+ * the last 10 minutes, or enter your password now.
+ */
+function recentlyAuthed(req) {
+  const t = readCookie(req);
+  if (!t) return false;
+  const row = db.prepare('SELECT created_at FROM sessions WHERE token = ?').get(tokenHash(t));
+  return !!row?.created_at && Date.now() - row.created_at < RECENT_MS;
+}
+function stepUp(req, res) {
+  if (recentlyAuthed(req)) return true;
+  if (tooMany(req, res)) return false;
+  if (req.body?.password && checkPassword(req.body.password)) { failures.delete(req.ip); return true; }
+  if (req.body?.password) recordFailure(req);
+  res.status(403).json({ error: 'Enter your password to add a passkey.', reauth: true });
+  return false;
+}
+
 export function isAuthed(req) {
-  const t = req.cookies?.[COOKIE];
+  const t = readCookie(req);
   if (!t) return false;
   const h = tokenHash(t);
   let row = db.prepare('SELECT expires_at FROM sessions WHERE token = ?').get(h);
@@ -137,7 +178,18 @@ export function isAuthed(req) {
 }
 
 export function requireAuth(req, res, next) {
-  if (isAuthed(req)) return next();
+  if (isAuthed(req)) {
+    // Signed in with the old cookie name: move it to the stricter __Host- cookie.
+    if (COOKIE !== OLD_COOKIE && !req.cookies?.[COOKIE] && req.cookies?.[OLD_COOKIE]) {
+      const t = req.cookies[OLD_COOKIE];
+      const row = db.prepare('SELECT expires_at FROM sessions WHERE token = ?').get(tokenHash(t));
+      if (row) {
+        res.cookie(COOKIE, t, { httpOnly: true, secure: true, sameSite: 'lax', maxAge: Math.max(0, row.expires_at - Date.now()), path: '/' });
+        res.clearCookie(OLD_COOKIE, { path: '/' });
+      }
+    }
+    return next();
+  }
   res.status(401).json({ error: 'Not signed in.' });
 }
 
@@ -147,6 +199,8 @@ const challenges = new Map(); // challenge -> expiry
 function rememberChallenge(c) {
   const t = Date.now();
   for (const [k, exp] of challenges) if (exp < t) challenges.delete(k);
+  // Asking for a sign-in challenge needs no password, so cap how many can pile up.
+  while (challenges.size >= 500) challenges.delete(challenges.keys().next().value);
   challenges.set(c, t + 5 * 60 * 1000);
 }
 function takeChallenge(c) {
@@ -175,6 +229,7 @@ export function deletePasskey(req, res) {
 }
 
 export async function passkeyRegisterOptions(req, res, next) {
+  if (!stepUp(req, res)) return;
   try {
     const { generateRegistrationOptions } = await webauthn();
     const { rpID } = relyingParty(req);
@@ -200,7 +255,7 @@ export async function passkeyRegisterVerify(req, res, next) {
     const { origin, rpID } = relyingParty(req);
     const response = req.body?.response;
     const v = await verifyRegistrationResponse({
-      response, expectedChallenge: takeChallenge, expectedOrigin: origin, expectedRPID: rpID, requireUserVerification: false
+      response, expectedChallenge: takeChallenge, expectedOrigin: origin, expectedRPID: rpID, requireUserVerification: true
     });
     if (!v.verified || !v.registrationInfo) return res.status(400).json({ error: 'Couldn’t verify the passkey.' });
     const { credential } = v.registrationInfo;
@@ -223,24 +278,24 @@ export async function passkeyLoginOptions(req, res, next) {
 }
 
 export async function passkeyLoginVerify(req, res) {
-  if (tooMany(req, res)) return;
+  if (tooMany(req, res, { global: false })) return;
   try {
     const { verifyAuthenticationResponse } = await webauthn();
     const { origin, rpID } = relyingParty(req);
     const response = req.body?.response;
     const cred = db.prepare('SELECT * FROM passkeys WHERE id = ?').get(response?.id);
-    if (!cred) { recordFailure(req); return res.status(401).json({ error: 'That passkey isn’t registered with Heartwood.' }); }
+    if (!cred) { recordFailure(req, { global: false }); return res.status(401).json({ error: 'That passkey isn’t registered with Heartwood.' }); }
     const v = await verifyAuthenticationResponse({
       response, expectedChallenge: takeChallenge, expectedOrigin: origin, expectedRPID: rpID, requireUserVerification: true,
       credential: { id: cred.id, publicKey: new Uint8Array(cred.public_key), counter: cred.counter, transports: JSON.parse(cred.transports || '[]') }
     });
-    if (!v.verified) { recordFailure(req); return res.status(401).json({ error: 'Passkey sign-in failed.' }); }
+    if (!v.verified) { recordFailure(req, { global: false }); return res.status(401).json({ error: 'Passkey sign-in failed.' }); }
     db.prepare('UPDATE passkeys SET counter = ?, last_used_at = ? WHERE id = ?').run(v.authenticationInfo.newCounter, new Date().toISOString(), cred.id);
     failures.delete(req.ip);
     startSession(res);
     res.json({ ok: true });
   } catch (err) {
-    recordFailure(req);
+    recordFailure(req, { global: false });
     console.error('[passkey]', err.message);
     res.status(401).json({ error: 'Passkey sign-in failed.' });
   }

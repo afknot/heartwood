@@ -6,23 +6,12 @@ import Sheet from './Sheet.jsx';
 import AskComposer from './AskComposer.jsx';
 import { ComposeSheet } from './Compose.jsx';
 import { useDictation, DictationPanel, MicButton } from './VoiceInput.jsx';
-import { formatDate, renderMarkdown } from '../lib/format.js';
+import { formatDate, renderAnswer, inAppPath } from '../lib/format.js';
 import { useApp } from '../lib/context.js';
 
-const LINK = { entry: id => `/entry/${id}`, person: id => `/people/${id}`, schedule: id => `/schedule?edit=${id}`, meeting: id => `/?meeting=${encodeURIComponent(id)}` };
-const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /** An answer's [E3] / [P2] labels as links to what they cite. */
-export function answerHtml(m) {
-  const map = Object.fromEntries((m.sources || []).map(s => [s.ref, s]));
-  return renderMarkdown(m.content).replace(/\[([EPRM]\d+)\]/g, (all, ref) => {
-    const s = map[ref];
-    if (!s || !LINK[s.type || 'entry']) return '';
-    const to = LINK[s.type || 'entry'](s.id);
-    const label = (s.type || 'entry') === 'entry' ? (s.title || 'note').slice(0, 28) : s.title;
-    return `<a class="ref ref-${esc(s.type || 'entry')}" href="${esc(to)}" data-go="${esc(to)}" title="${esc(s.title || '')}">${esc(label || ref)}</a>`;
-  });
-}
+export const answerHtml = m => renderAnswer(m.content, m.sources);
 
 /** A chat about one thing (a person, a note, a meeting), or about anything when `subject` is empty. */
 export function ChatPanel({ subject, chatId, onChat, ideas = [], listen = false }) {
@@ -51,7 +40,7 @@ export function ChatPanel({ subject, chatId, onChat, ideas = [], listen = false 
       setChat(c => ({ ...c, messages: (c?.messages || []).slice(0, -1) }));
     } finally { setBusy(false); }
   }
-  const onClick = e => { const a = e.target.closest('a[data-go]'); if (a) { e.preventDefault(); nav(a.dataset.go); } };
+  const onClick = e => { const a = e.target.closest('a[data-go]'); if (a) { e.preventDefault(); const to = inAppPath(a.dataset.go); if (to) nav(to); } };
   return (
     <div className="chat-panel">
       {!msgs.length && ideas.length > 0 && (

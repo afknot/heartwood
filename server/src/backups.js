@@ -66,6 +66,8 @@ export function setupBackups({ passphrase = '', destination = 'gdrive' } = {}) {
   if (backupsEnabled()) throw new BackupError('Backups are already turned on. To change the passphrase, see README → Backups.');
   const pass = String(passphrase);
   if (pass.length < 12) throw new BackupError('Use a passphrase of at least 12 characters. A few random words works well.');
+  // The backup service reads this file with a simple parser; quotes and backslashes would cut it short.
+  if (/["\\\n]/.test(pass)) throw new BackupError('Leave out quotation marks and backslashes. Spaces and other symbols are fine.');
   const repo = destination === 'local' ? '/backups' : 'rclone:gdrive:Heartwood-backups';
   touch('config.json', JSON.stringify({ password: pass, repository: repo, created_at: new Date().toISOString() }), 0o600);
   return backupInfo();

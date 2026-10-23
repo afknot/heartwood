@@ -1,12 +1,13 @@
 // Read any file you attach to a note: documents, decks, spreadsheets, PDFs and photos.
 // Text-based files are converted locally; photos and scanned pages are prepared as
 // images so the AI can read handwriting, sticky notes and whiteboards.
-import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { tmpDir } from './config.js';
 import { htmlToText } from './documents.js';
+import { runCommand, IMAGE_INPUT } from './proc.js';
+import { assertSafeZip } from './zipguard.js';
 
 export const FILE_TYPES = {
   doc: ['.docx'],
@@ -25,19 +26,7 @@ export function fileKind(name) {
 const MAX_TEXT = 60000;
 const MAX_PDF_PAGES_AS_IMAGES = 10;
 
-function run(cmd, args, { binary = false } = {}) {
-  return new Promise((resolve, reject) => {
-    const p = spawn(cmd, args);
-    const out = []; let err = '';
-    p.stdout.on('data', d => out.push(d));
-    p.stderr.on('data', d => (err += d));
-    p.on('error', reject);
-    p.on('close', code => {
-      const buf = Buffer.concat(out);
-      code === 0 ? resolve(binary ? buf : buf.toString('utf8')) : reject(new Error(`${cmd} failed: ${err.slice(-300)}`));
-    });
-  });
-}
+const run = (cmd, args, o = {}) => runCommand(cmd, args, { timeoutMs: 90000, ...o });
 
 const clip = t => (t.length > MAX_TEXT ? t.slice(0, MAX_TEXT) + '\n…[truncated]' : t);
 const tidy = t => String(t).replace(/\r\n?/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
@@ -51,7 +40,7 @@ async function toJpeg(file) {
     await run('heif-convert', ['-q', '92', file, src]);
   }
   const out = `${work}.jpg`;
-  await run('ffmpeg', ['-y', '-hide_banner', '-loglevel', 'error', '-i', src,
+  await run('ffmpeg', ['-y', '-hide_banner', '-loglevel', 'error', ...IMAGE_INPUT, '-i', src,
     '-vf', "scale='min(1600,iw)':'min(1600,ih)':force_original_aspect_ratio=decrease", '-frames:v', '1', '-q:v', '3', out]);
   const data = (await fs.readFile(out)).toString('base64');
   await Promise.all([fs.rm(out, { force: true }), src !== file ? fs.rm(src, { force: true }) : null]);
@@ -110,11 +99,13 @@ export async function extractFile(file, name) {
   const kind = fileKind(name);
   if (kind === 'text') return { kind, text: clip(tidy(await fs.readFile(file, 'utf8'))), images: [] };
   if (kind === 'doc') {
+    await assertSafeZip(file);
     const mammoth = (await import('mammoth')).default;
     const { value } = await mammoth.convertToHtml({ path: file });
     return { kind, text: clip(tidy(htmlToText(value))), images: [] };
   }
-  if (kind === 'sheet') return { kind, text: clip(await sheetToText(file)), images: [] };
+  if (kind === 'sheet') { if (/\.(xlsx|xlsm|ods)$/i.test(name)) await assertSafeZip(file); return { kind, text: clip(await sheetToText(file)), images: [] }; }
+  if (kind === 'slides') await assertSafeZip(file);
   if (kind === 'slides') return { kind, text: clip(tidy(await pptxToText(file))), images: [] };
   if (kind === 'image') return { kind, text: '', images: [await toJpeg(file)] };
   if (kind === 'pdf') {
@@ -122,7 +113,7 @@ export async function extractFile(file, name) {
     if (text.replace(/\s/g, '').length >= 80) return { kind, text: clip(text), images: [] };
     // Scanned / photographed PDF: render the first pages as images for the AI to read.
     const prefix = path.join(tmpDir, crypto.randomUUID());
-    await run('pdftoppm', ['-r', '110', '-jpeg', '-l', String(MAX_PDF_PAGES_AS_IMAGES), file, prefix]);
+    await run('pdftoppm', ['-scale-to', '1600', '-jpeg', '-l', String(MAX_PDF_PAGES_AS_IMAGES), file, prefix], { timeoutMs: 180000 });
     const dir = path.dirname(prefix), base = path.basename(prefix);
     const pages = (await fs.readdir(dir)).filter(f => f.startsWith(base)).sort();
     const images = [];
@@ -146,7 +137,7 @@ export async function makeAvatar(src, originalName, out) {
     input = tmp;
   }
   try {
-    await run('ffmpeg', ['-y', '-hide_banner', '-loglevel', 'error', '-i', input,
+    await run('ffmpeg', ['-y', '-hide_banner', '-loglevel', 'error', ...IMAGE_INPUT, '-i', input,
       '-vf', "crop='min(iw,ih)':'min(iw,ih)',scale=256:256", '-frames:v', '1', '-q:v', '3', out]);
   } finally { if (tmp) await fs.rm(tmp, { force: true }); }
 }

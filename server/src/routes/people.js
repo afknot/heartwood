@@ -65,7 +65,7 @@ people.patch('/:id', (req, res) => {
 });
 
 people.delete('/:id', (req, res) => {
-  fs.rmSync(path.join(avatarDir, `${req.params.id}.jpg`), { force: true });
+  fs.rmSync(path.join(avatarDir, `${path.basename(req.params.id)}.jpg`), { force: true });
   db.prepare('DELETE FROM people WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });

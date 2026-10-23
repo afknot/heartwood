@@ -61,7 +61,13 @@ if docker compose ps --status running --services 2>/dev/null | grep -qx heartwoo
 fi
 
 echo "== Building and starting (first build takes a few minutes)"
-docker compose $PROFILES up -d --build
+# Security patches: pull the newest Node base image, and once a week re-run the system update
+# inside the image even when nothing else changed. If Docker Hub can't be reached, build from
+# what's already here rather than fail the update.
+REFRESH="$(date +%G-%V)"
+docker compose $PROFILES build --pull --build-arg SECURITY_REFRESH="$REFRESH" \
+  || docker compose $PROFILES build --build-arg SECURITY_REFRESH="$REFRESH"
+docker compose $PROFILES up -d
 
 # The backup service runs deploy/backup.sh from a mounted file, so a new version only takes effect
 # after a restart. Restart it when the script changed (never in the middle of anything else).

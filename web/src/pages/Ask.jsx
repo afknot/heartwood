@@ -5,7 +5,7 @@ import Icon from '../components/Icon.jsx';
 import ReflectNav from '../components/ReflectNav.jsx';
 import Sheet from '../components/Sheet.jsx';
 import AskComposer from '../components/AskComposer.jsx';
-import { formatDate, renderMarkdown } from '../lib/format.js';
+import { formatDate, renderAnswer, inAppPath } from '../lib/format.js';
 import { useApp } from '../lib/context.js';
 
 const LINK = { entry: id => `/entry/${id}`, person: id => `/people/${id}`, schedule: id => `/schedule?edit=${id}`, meeting: id => `/?meeting=${encodeURIComponent(id)}` };
@@ -64,20 +64,9 @@ export default function Ask() {
   // Turn [E3] / [P2] / [R1] references into links to the note, person or recurring meeting.
   function onClick(e) {
     const a = e.target.closest('a[data-go]');
-    if (a) { e.preventDefault(); nav(a.dataset.go); }
+    if (a) { e.preventDefault(); const to = inAppPath(a.dataset.go); if (to) nav(to); }
   }
-  function html(m) {
-    const map = Object.fromEntries((m.sources || []).map(s => [s.ref, s]));
-    return renderMarkdown(m.content).replace(/\[([EPRM]\d+)\]/g, (all, ref) => {
-      const s = map[ref];
-      if (!s) return '';
-      const type = s.type || 'entry';
-      if (!LINK[type]) return '';
-      const to = LINK[type](s.id);
-      const label = type === 'entry' ? (s.title || 'note').slice(0, 28) : s.title;
-      return `<a class="ref ref-${escapeAttr(type)}" href="${escapeAttr(to)}" data-go="${escapeAttr(to)}" title="${escapeAttr(s.title || '')}">${escapeAttr(label || ref)}</a>`;
-    });
-  }
+  const html = m => renderAnswer(m.content, m.sources);
 
   return (
     <main className="page" style={{ paddingBottom: 'calc(var(--tabbar-h) + var(--safe-b) + 96px)' }}>
@@ -157,4 +146,3 @@ function ChatHistory({ open, onClose, currentId, onOpen, onDeleted }) {
   );
 }
 
-const escapeAttr = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

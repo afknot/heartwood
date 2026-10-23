@@ -1,6 +1,7 @@
 // Turn an uploaded document into plain text, then split a running 1:1 doc into
 // one segment per meeting by finding the dated headings.
-import { spawn } from 'node:child_process';
+import { runCommand } from './proc.js';
+import { assertSafeZip } from './zipguard.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -14,6 +15,7 @@ export async function extractText(buffer, fileName) {
   const ext = path.extname(fileName || '').toLowerCase();
   if (ext === '.txt' || ext === '.md' || ext === '.markdown') return normalize(buffer.toString('utf8'));
   if (ext === '.docx') {
+    try { await assertSafeZip(buffer); } catch (e) { throw new DocError(e.message); }
     const mammoth = (await import('mammoth')).default;
     const { value } = await mammoth.convertToHtml({ buffer });
     return normalize(htmlToText(value));
@@ -32,16 +34,7 @@ export async function extractText(buffer, fileName) {
   throw new DocError(`Heartwood can import ${ACCEPTED.join(', ')} files.`);
 }
 
-function run(cmd, args) {
-  return new Promise((resolve, reject) => {
-    const p = spawn(cmd, args);
-    let out = '', err = '';
-    p.stdout.on('data', d => (out += d));
-    p.stderr.on('data', d => (err += d));
-    p.on('error', reject);
-    p.on('close', code => (code === 0 ? resolve(out) : reject(new DocError(`Couldn't read the PDF: ${err.slice(-200)}`))));
-  });
-}
+const run = (cmd, args) => runCommand(cmd, args, { timeoutMs: 120000, makeError: msg => new DocError(`Couldn't read the PDF: ${msg.slice(-200)}`) });
 
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '—', rsquo: '’', lsquo: '‘', rdquo: '”', ldquo: '“', hellip: '…' };
 export function htmlToText(html) {

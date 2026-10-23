@@ -7,7 +7,7 @@ import { config } from './config.js';
 import './db.js';
 import './vault.js';
 import {
-  login, logout, isAuthed, requireAuth, cleanupSessions, changePassword, passwordConfigured,
+  login, logout, logoutEverywhere, sessionCount, isAuthed, requireAuth, cleanupSessions, changePassword, passwordConfigured,
   passkeysAvailable, listPasskeys, deletePasskey, passkeyRegisterOptions, passkeyRegisterVerify, passkeyLoginOptions, passkeyLoginVerify
 } from './auth.js';
 import { entries } from './routes/entries.js';
@@ -48,6 +48,8 @@ app.use((req, res, next) => {
   res.setHeader('Permissions-Policy', 'microphone=(self), camera=(), geolocation=(), payment=(), usb=()');
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
   res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+  res.setHeader('Origin-Agent-Cluster', '?1');
   res.setHeader('Content-Security-Policy', CSP + (req.secure ? '; upgrade-insecure-requests' : ''));
   if (req.secure) res.setHeader('Strict-Transport-Security', 'max-age=31536000');
   next();
@@ -68,16 +70,21 @@ app.use('/api', (req, res, next) => {
   next();
 });
 app.use(express.json({ limit: '5mb' }));
+// Journal data is never kept in browser or proxy caches (routes that serve files set their own).
+app.use('/api', (req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
 app.use(cookieParser());
 
 // --- API ---
 // Which version is running (written by deploy/auto-update.sh after each automatic update).
 const deployed = () => { try { return JSON.parse(fs.readFileSync(path.join(config.dataDir, 'deployed.json'), 'utf8')); } catch { return null; } };
-app.get('/api/health', (req, res) => res.json({ ok: true, version: deployed() }));
+// Which version is running is only shown once you're signed in.
+app.get('/api/health', (req, res) => res.json(isAuthed(req) ? { ok: true, version: deployed() } : { ok: true }));
 app.post('/api/auth/login', login);
 app.post('/api/auth/logout', logout);
 app.get('/api/auth/me', (req, res) => res.json({ authed: isAuthed(req) }));
 app.post('/api/auth/password', requireAuth, changePassword);
+app.post('/api/auth/logout-everywhere', requireAuth, logoutEverywhere);
+app.get('/api/auth/sessions', requireAuth, (req, res) => res.json({ count: sessionCount() }));
 app.get('/api/auth/passkey/available', passkeysAvailable);
 app.post('/api/auth/passkey/login/options', passkeyLoginOptions);
 app.post('/api/auth/passkey/login/verify', passkeyLoginVerify);

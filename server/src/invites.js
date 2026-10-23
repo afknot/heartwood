@@ -165,7 +165,8 @@ export async function checkInbox() {
     if (!c.allowed.length) throw new Error('Add your work address under Allowed senders so Heartwood knows whose invites to read.');
     const { ImapFlow } = await import('imapflow');
     const { simpleParser } = await import('mailparser');
-    client = new ImapFlow({ host: c.host, port: c.port, secure: c.port === 993, auth: { user: c.user, pass: c.pass }, logger: false, socketTimeout: 60000 });
+    // Never sign in to the mailbox in the clear: port 993 is TLS from the start; anything else must upgrade with STARTTLS.
+    client = new ImapFlow({ host: c.host, port: c.port, secure: c.port === 993, ...(c.port === 993 ? {} : { doSTARTTLS: true }), auth: { user: c.user, pass: c.pass }, logger: false, socketTimeout: 60000 });
     await client.connect();
     const lock = await client.getMailboxLock('INBOX');
     try {

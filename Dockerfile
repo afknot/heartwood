@@ -2,7 +2,9 @@
 FROM node:22-bookworm-slim AS web
 WORKDIR /web
 COPY web/package*.json ./
-RUN npm install --no-audit --no-fund
+# Packages' own install scripts are a common way in for a hijacked package, so they're off;
+# only esbuild (the bundler, which needs its platform binary) is allowed to set itself up.
+RUN npm install --no-audit --no-fund --ignore-scripts && npm rebuild esbuild
 COPY web/ ./
 RUN npm run build
 
@@ -11,11 +13,16 @@ FROM node:22-bookworm-slim AS deps
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/server
 COPY server/package*.json ./
-RUN npm install --omit=dev --no-audit --no-fund
+# Install scripts off for everything except the database driver, which compiles native code.
+RUN npm install --omit=dev --no-audit --no-fund --ignore-scripts && npm rebuild better-sqlite3
 
 # ---- 3. Runtime ----
 FROM node:22-bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg poppler-utils libheif-examples tzdata ca-certificates && rm -rf /var/lib/apt/lists/*
+# Changes weekly (deploy/install.sh), so Debian's security updates are picked up even when
+# nothing else in the image changed.
+ARG SECURITY_REFRESH=0
+RUN echo "security refresh $SECURITY_REFRESH" && apt-get update && apt-get upgrade -y --no-install-recommends \
+  && apt-get install -y --no-install-recommends ffmpeg poppler-utils libheif-examples tzdata ca-certificates && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production \
     PORT=3000 \
     DATA_DIR=/data \

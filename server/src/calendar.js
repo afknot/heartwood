@@ -73,7 +73,7 @@ function store(events) {
 }
 
 async function fetchEvents(url) {
-  const res = await safeFetch(url, { signal: AbortSignal.timeout(20000), headers: { accept: 'text/calendar, */*' } });
+  const res = await safeFetch(url, { timeoutMs: 20000, maxBytes: 15 * 1024 * 1024, headers: { accept: 'text/calendar, */*' } });
   if (!res.ok) throw new Error(`The calendar link returned ${res.status}. Check that it’s the private/secret address.`);
   const text = await res.text();
   if (text.length > 15 * 1024 * 1024) throw new Error('That calendar is too large to read.');

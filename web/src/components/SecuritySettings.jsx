@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import Icon from './Icon.jsx';
-import { formatDate } from '../lib/format.js';
+import { formatDate, safeHref } from '../lib/format.js';
 import { useApp } from '../lib/context.js';
 import { MeetingSheet } from './MeetingSheet.jsx';
 import { useConnections } from './Connections.jsx';
@@ -59,15 +59,25 @@ export function PasskeySettings() {
   const { notify } = useApp();
   const [list, setList] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [needPw, setNeedPw] = useState(false);
+  const [pw, setPw] = useState('');
   const supported = typeof window !== 'undefined' && !!window.PublicKeyCredential;
   const load = () => api.get('/auth/passkeys').then(setList).catch(() => setList([]));
   useEffect(() => { load(); }, []);
 
-  async function add() {
+  async function add(e) {
+    e?.preventDefault?.();
     setBusy(true);
     try {
       const { startRegistration } = await import('@simplewebauthn/browser');
-      const optionsJSON = await api.post('/auth/passkey/register/options');
+      // Adding a passkey needs a recent sign-in, or your password, so a borrowed session can't add one.
+      let optionsJSON;
+      try { optionsJSON = await api.post('/auth/passkey/register/options', needPw ? { password: pw } : {}); }
+      catch (x) {
+        if (x.status === 403) { setNeedPw(true); if (needPw) notify(x.message); return; }
+        throw x;
+      }
+      setNeedPw(false); setPw('');
       const response = await startRegistration({ optionsJSON });
       await api.post('/auth/passkey/register/verify', { response });
       notify('Passkey added. You can sign in with it now.');
@@ -88,8 +98,14 @@ export function PasskeySettings() {
         </div>
       ))}
       {supported
-        ? <button className="btn small mt" onClick={add} disabled={busy}>{busy ? 'Waiting for your device…' : 'Add a passkey on this device'}</button>
+        ? needPw
+          ? <form className="row mt" style={{ gap: 8 }} onSubmit={add}>
+            <input className="input" type="password" autoComplete="current-password" value={pw} onChange={e => setPw(e.target.value)} placeholder="Your password" aria-label="Your password, to add a passkey" autoFocus />
+            <button className="btn small primary" disabled={busy || !pw}>Continue</button>
+          </form>
+          : <button className="btn small mt" onClick={add} disabled={busy}>{busy ? 'Waiting for your device…' : 'Add a passkey on this device'}</button>
         : <p className="small muted">This browser doesn’t support passkeys.</p>}
+      {needPw && <p className="small muted" style={{ margin: '6px 0 0' }}>For your safety, adding a passkey needs your password unless you signed in in the last 10 minutes.</p>}
     </div>
   );
 }
@@ -228,7 +244,7 @@ function DriveConnect({ info, waiting, act }) {
       {stage === 'expired' && <p className="small muted" style={{ marginTop: 0 }}>The last sign-in timed out. Start again.</p>}
       {stage === 'waiting' && d.auth_url ? <>
         <ol className="small steps">
-          <li><a className="btn small primary" href={d.auth_url} target="_blank" rel="noopener noreferrer">Sign in to Google</a> and choose <b>Allow</b>.</li>
+          <li><a className="btn small primary" href={safeHref(d.auth_url)} target="_blank" rel="noopener noreferrer">Sign in to Google</a> and choose <b>Allow</b>.</li>
           <li>Google then opens a page that <b>won’t load</b> (it starts with <code>127.0.0.1:53682</code>). That’s expected. Copy the whole address from the address bar.</li>
           <li>Paste it here:</li>
         </ol>
