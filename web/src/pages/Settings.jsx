@@ -267,6 +267,7 @@ function AIUsage() {
     <div className="card" style={{ padding: '12px 16px' }}>
       <p style={{ margin: 0 }}><strong>{u.calls}</strong> call{u.calls === 1 ? '' : 's'} · {tokens(inTotal)} read · {tokens(u.output)} written</p>
       {cached > 0 && <p className="small muted" style={{ margin: '4px 0 0' }}>{cached}% of what was read came from the cache, at about a tenth of the price.</p>}
+      {u.by_model?.length > 1 && <p className="small muted" style={{ margin: '4px 0 0' }}>By model: {u.by_model.map(m => `${m.model} ${m.calls} call${m.calls === 1 ? '' : 's'}`).join(' · ')}</p>}
       {u.by_task?.length > 0 && <ul className="small muted" style={{ margin: '8px 0 0', paddingLeft: 18 }}>
         {u.by_task.map(t => <li key={t.task}>{t.task[0].toUpperCase() + t.task.slice(1)}: {t.calls} · {tokens(t.input + t.cache_read)} in, {tokens(t.output)} out</li>)}
       </ul>}

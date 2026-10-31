@@ -28,7 +28,9 @@ export function usageSummary({ since = new Date(Date.now() - 30 * 864e5).toISOSt
     COALESCE(SUM(cache_read),0) AS cache_read, COALESCE(SUM(cache_write),0) AS cache_write FROM ai_usage WHERE at >= ?`).get(since);
   const byTask = db.prepare(`SELECT task, COUNT(*) AS calls, SUM(input) AS input, SUM(output) AS output, SUM(cache_read) AS cache_read
     FROM ai_usage WHERE at >= ? GROUP BY task ORDER BY SUM(input + output + cache_read + cache_write) DESC LIMIT 12`).all(since);
-  return { since, ...total, by_task: byTask };
+  const byModel = db.prepare(`SELECT model, COUNT(*) AS calls, SUM(input + output + cache_read + cache_write) AS tokens
+    FROM ai_usage WHERE at >= ? GROUP BY model ORDER BY tokens DESC LIMIT 6`).all(since);
+  return { since, ...total, by_task: byTask, by_model: byModel };
 }
 
 /**
