@@ -141,6 +141,22 @@ export default function Settings() {
             onChange={e => update({ models: { ...s.models, [s.ai_provider]: e.target.value } }, { debounce: true })} />
           <small>Model names change often. Paste a current one from your provider’s docs if you get a “model not found” error.</small>
         </label>
+        <div className="field"><span>Choosing models</span>
+          <div className="seg" role="radiogroup" aria-label="Choosing models">
+            <button role="radio" aria-checked={s.model_mode !== 'single'} className={s.model_mode !== 'single' ? 'on' : ''} onClick={() => update({ model_mode: 'auto' })}>Auto</button>
+            <button role="radio" aria-checked={s.model_mode === 'single'} className={s.model_mode === 'single' ? 'on' : ''} onClick={() => update({ model_mode: 'single' })}>One model for everything</button>
+          </div>
+          <small>{s.model_mode === 'single'
+            ? 'Everything uses the model above.'
+            : 'Quick, simple jobs (Live coach, quick-add to-dos, reading photos, agenda ideas, learning your writing voice) use a lighter, cheaper model. Reflections, Ask, prep, debriefs and anything written in your voice use the model above.'}</small>
+        </div>
+        {s.model_mode !== 'single' && (
+          <label className="field"><span>Lighter model for quick jobs</span>
+            <input className="input" value={s.light_models?.[s.ai_provider] || ''} autoCapitalize="none" spellCheck="false" placeholder="Leave blank to use the model above"
+              onChange={e => update({ light_models: { ...s.light_models, [s.ai_provider]: e.target.value } }, { debounce: true })} />
+            <small>{s.ai_provider === 'anthropic' ? 'Claude Haiku is a good fit.' : `Paste a small, fast ${AI[s.ai_provider]} model name to save tokens.`} If it isn’t available, Heartwood quietly uses the model above.</small>
+          </label>
+        )}
         {!Object.values(avail.analysis).some(Boolean) && <div className="banner warn">Add at least one API key above to turn on reflection, prep and Ask.</div>}
 
         <h2 className="section-title">Transcription</h2>
@@ -159,7 +175,7 @@ export default function Settings() {
         <div className="card" style={{ padding: '4px 16px' }}>
           <Toggle label="Reflect automatically after recording" hint="Runs the AI reflection as soon as a transcript is ready." checked={s.auto_analyze} onChange={v => update({ auto_analyze: v })} />
           <Toggle label="Auto-organize" hint="Fill in missing titles, add tags, and link people the AI recognizes. Never overwrites what you set." checked={s.auto_organize} onChange={v => update({ auto_organize: v })} />
-          <Toggle label="Live coach while recording" hint="Suggests questions to ask, things to say and commitments to note during 1:1s, conversations and meetings. You can still turn it off for one recording." checked={s.live_coach !== false} onChange={v => update({ live_coach: v })} />
+          <Toggle label="Live coach while recording" hint="Suggests questions to ask, things to say and commitments to note during 1:1s, conversations and meetings. Off by default; uses AI tokens every few minutes while you record. You can also turn it on for one recording." checked={s.live_coach === true} onChange={v => update({ live_coach: v })} />
           <Toggle label="Delete audio after transcribing" hint="Keep only the text. Saves space and limits what’s stored." checked={s.delete_audio_after_transcribe} onChange={v => update({ delete_audio_after_transcribe: v })} />
         </div>
 

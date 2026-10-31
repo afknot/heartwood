@@ -40,10 +40,25 @@ export function usageSummary({ since = new Date(Date.now() - 30 * 864e5).toISOSt
  * @param {number}  [o.maxTokens]
  * @param {string}  [o.task]  short label for the usage record, e.g. 'analysis'
  */
+// Jobs a lighter model does well: short, structured, and easy to check. Coaching, reflections,
+// Ask, prep, debriefs and anything written in your voice stay on the main model.
+export const LIGHT_TASKS = new Set(['live coach', 'quick add', 'read image', 'agenda', 'voice profile']);
+const brokenLight = new Set(); // light models the provider turned down this run (e.g. a retired name)
+
+/** The model for a task: in Auto, light jobs get the light model when one is set. */
+export function modelFor(s, provider, task) {
+  const main = s.models?.[provider];
+  const light = String(s.light_models?.[provider] || '').trim();
+  if (s.model_mode !== 'single' && LIGHT_TASKS.has(task) && light && !brokenLight.has(`${provider}:${light}`)) return { model: light, light: true, main };
+  return { model: main, light: false, main };
+}
+const modelProblem = msg => /\b(400|404)\b/.test(msg) && /model/i.test(msg);
+
 export async function complete({ system, messages, json = false, maxTokens = 6000, task = 'other' }) {
   const s = getSettings();
   const provider = s.ai_provider;
-  const model = s.models?.[provider];
+  const pick = modelFor(s, provider, task);
+  let model = pick.model;
   if (!config.keys[provider]) throw new AIError(`No API key set for ${{ anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini' }[provider] || provider}. Add one in Settings → AI & transcription.`);
   if (!model) throw new AIError(`No model set for ${provider}.`);
 
@@ -52,7 +67,7 @@ export async function complete({ system, messages, json = false, maxTokens = 600
     : system;
 
   const parts = splitSystem(sys);
-  const call = async (msgs, budget) => {
+  const once = async (msgs, budget) => {
     let r;
     if (provider === 'anthropic') r = await anthropic(model, parts, msgs, budget);
     else if (provider === 'openai') r = await openai(model, parts.join('\n\n'), msgs, budget, json);
@@ -60,6 +75,19 @@ export async function complete({ system, messages, json = false, maxTokens = 600
     else throw new AIError(`Unknown provider ${provider}`);
     recordUsage(provider, model, task, r.usage || {});
     return r;
+  };
+  const call = async (msgs, budget) => {
+    try { return await once(msgs, budget); }
+    catch (err) {
+      // A light model that isn't available (renamed, retired, not on your plan): use the main one.
+      if (pick.light && model !== pick.main && modelProblem(err.message)) {
+        console.warn(`[ai] light model ${model} not available (${err.message.slice(0, 120)}); using ${pick.main}`);
+        brokenLight.add(`${provider}:${model}`);
+        model = pick.main;
+        return once(msgs, budget);
+      }
+      throw err;
+    }
   };
 
   let { text, truncated } = await call(messages, maxTokens);

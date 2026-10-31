@@ -120,13 +120,13 @@ export async function suggestLive(id) {
     if (wins.length) lines.push(`Recent wins not yet recognized: ${wins.map(w => w.text).join('; ')}`);
     const prep = db.prepare(`SELECT content_md FROM reports WHERE kind = 'prep' AND person_id = ? AND created_at >= ? ORDER BY created_at DESC LIMIT 1`)
       .get(p.id, new Date(Date.now() - 7 * 864e5).toISOString());
-    if (prep) lines.push(`The writer's prep for this conversation:\n${String(prep.content_md).slice(0, 2500)}`);
+    if (prep) lines.push(`The writer's prep for this conversation:\n${String(prep.content_md).slice(0, 1200)}`);
     background.push(lines.join('\n'));
   }
-  const ctx = contextBlock(inIt.slice(0, 4).map(p => ({ kind: 'person', id: p.id, label: p.name })), { per: 4, maxChars: 1500 });
+  const ctx = contextBlock(inIt.slice(0, 4).map(p => ({ kind: 'person', id: p.id, label: p.name })), { per: 3, maxChars: 800 });
 
-  // The most recent ~6,000 characters of transcript, with times.
-  let budget = 6000;
+  // The most recent ~3,500 characters of transcript (the last few minutes), with times.
+  let budget = 3500;
   const recent = [];
   for (let i = s.parts.length - 1; i >= 0 && budget > 0; i--) {
     const t = s.parts[i].text.slice(-budget);

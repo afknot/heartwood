@@ -41,6 +41,14 @@ export const DEFAULT_SETTINGS = {
     openai: 'gpt-5.6-sol',
     gemini: 'gemini-3.6-flash'
   },
+  // Auto: quick, simple jobs use a lighter, cheaper model; coaching and writing use the main one.
+  // 'single' uses the main model for everything. Leave a light model blank to use the main one.
+  model_mode: 'auto',
+  light_models: {
+    anthropic: 'claude-haiku-5-5',
+    openai: '',
+    gemini: ''
+  },
   transcribe_provider: 'local',
   transcribe_models: {
     openai: 'gpt-transcribe',
@@ -49,7 +57,7 @@ export const DEFAULT_SETTINGS = {
   auto_analyze: true,
   auto_organize: true,
   delete_audio_after_transcribe: false,
-  live_coach: true,                 // suggest questions and responses while recording a conversation
+  live_coach: false,                // suggest questions and responses while recording a conversation (opt in)
   notifications: {
     morning: true,
     morning_time: '08:00',

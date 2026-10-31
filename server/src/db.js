@@ -460,7 +460,9 @@ const MIGRATIONS = [
       const ins = db.prepare(`INSERT INTO inspirations(id, name, status, created_at, updated_at) VALUES (?, ?, 'building', ?, ?)`);
       ['Star Trek', 'Parks and Recreation', '30 Rock', 'The Office', 'Movies from the ’80s, ’90s and 2000s'].forEach((n, i) => ins.run(crypto.randomUUID(), n, new Date(Date.parse(t) + i).toISOString(), t));
     }
-  }
+  },
+  // 24: Live coach is opt-in (it spends AI tokens all through a recording), so it starts off.
+  () => db.prepare(`INSERT INTO settings(key, value) VALUES ('live_coach', 'false') ON CONFLICT(key) DO UPDATE SET value = 'false'`).run()
 ];
 {
   const current = db.pragma('user_version', { simple: true });

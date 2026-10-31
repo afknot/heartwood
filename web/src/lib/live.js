@@ -5,8 +5,10 @@ import { api } from '../api.js';
 import { pickMime } from './recorder.js';
 
 const CLIP_MS = 30000;
-const FIRST_SUGGEST_MS = 75000;
-const SUGGEST_EVERY_MS = 120000;
+// Suggestions cost AI tokens, so they come every few minutes and only when enough new has been said.
+const FIRST_SUGGEST_MS = 90000;
+const SUGGEST_EVERY_MS = 180000;
+const MIN_NEW_CHARS = 400;
 
 export class LiveCoach {
   constructor({ stream, kind, people, title, seconds, onChange }) {
@@ -70,7 +72,7 @@ export class LiveCoach {
     if (this.paused || this.stopped || this.state.thinking) return;
     const since = Date.now() - (this.lastSuggest || this.startedAt);
     const due = this.lastSuggest ? since >= SUGGEST_EVERY_MS : since >= FIRST_SUGGEST_MS;
-    if (due && this.newSince >= 150) this.suggest();
+    if (due && this.newSince >= MIN_NEW_CHARS) this.suggest();
   }
 
   async suggest() {

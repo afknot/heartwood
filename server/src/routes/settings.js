@@ -74,6 +74,8 @@ settings.put('/settings', (req, res) => {
   for (const k of ['auto_analyze', 'auto_organize', 'delete_audio_after_transcribe', 'live_coach']) if (typeof b[k] === 'boolean') patch[k] = b[k];
   const str = o => Object.fromEntries(Object.entries(o || {}).filter(([, v]) => typeof v === 'string').map(([k, v]) => [k, v.trim().slice(0, 2000)]));
   if (b.models) patch.models = { ...getSettings().models, ...str(b.models) };
+  if (['auto', 'single'].includes(b.model_mode)) patch.model_mode = b.model_mode;
+  if (b.light_models) patch.light_models = { ...getSettings().light_models, ...str(b.light_models) };
   if (b.transcribe_models) patch.transcribe_models = { ...getSettings().transcribe_models, ...str(b.transcribe_models) };
   if (b.profile) patch.profile = { ...getSettings().profile, ...str(b.profile) };
   if (b.career) {

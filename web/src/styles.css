@@ -810,3 +810,6 @@ html.kb-open .app.has-dock { --tabbar-h: 0px; }
 .todo-text { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .todo-text:hover { text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
 .fu-more { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.rec-more { margin: 0 0 16px; }
+.rec-more > summary { cursor: pointer; font-size: 14px; color: var(--ink-2); padding: 6px 0; list-style-position: inside; }
+.rec-more[open] > summary { margin-bottom: 8px; }

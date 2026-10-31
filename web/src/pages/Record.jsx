@@ -136,8 +136,8 @@ export default function Record() {
   const [notice, setNotice] = useState('');
   const [saved, setSaved] = useState(null); // { seconds, entryId } after an interruption
   // Live coach follows Settings; the checkbox here changes it for this recording only.
-  const [coachOn, setCoachOn] = useState(true);
-  useEffect(() => { api.get('/settings').then(r => setCoachOn(r.settings?.live_coach !== false)).catch(() => {}); }, []);
+  const [coachOn, setCoachOn] = useState(false);
+  useEffect(() => { api.get('/settings').then(r => setCoachOn(r.settings?.live_coach === true)).catch(() => {}); }, []);
   const [coachState, setCoachState] = useState(null);
   const coachRef = useRef(null);
 
@@ -382,22 +382,24 @@ export default function Record() {
 
       {secure && supported && <MicCheck deviceId={deviceId} setDeviceId={setDeviceId} disabled={stage !== 'setup'} />}
 
-      {secure && supported && kind !== 'memo' && canShareTabAudio() && (
-        <label className="check plain" style={{ marginBottom: 16 }}>
-          <input type="checkbox" checked={tabAudio} onChange={e => setTabAudio(e.target.checked)} />
-          <span>Also record the meeting’s sound from a browser tab
-            <br /><small className="muted">For Google Meet, Teams or Zoom in the browser when you’re on headphones (otherwise your mic only hears you). You’ll pick the tab and turn on “Share tab audio”. Desktop apps’ sound can’t be shared this way.</small>
-          </span>
-        </label>
-      )}
-
       {kind !== 'memo' && (
-        <label className="check plain" style={{ marginBottom: 16 }}>
-          <input type="checkbox" checked={coachOn} onChange={e => setCoachOn(e.target.checked)} />
-          <span>Live coach: suggest questions and responses while you talk
-            <br /><small className="muted">Every half minute, a short piece of the conversation goes to your transcription engine and your AI for suggestions. Nothing from it is saved. Change the default in Settings → AI & transcription.</small>
-          </span>
-        </label>
+        <details className="rec-more" open={coachOn || undefined}>
+          <summary>More options</summary>
+          {secure && supported && canShareTabAudio() && (
+            <label className="check plain" style={{ marginBottom: 10 }}>
+              <input type="checkbox" checked={tabAudio} onChange={e => setTabAudio(e.target.checked)} />
+              <span>Also record the meeting’s sound from a browser tab
+                <br /><small className="muted">For Google Meet, Teams or Zoom in the browser when you’re on headphones (otherwise your mic only hears you). You’ll pick the tab and turn on “Share tab audio”. Desktop apps’ sound can’t be shared this way.</small>
+              </span>
+            </label>
+          )}
+          <label className="check plain" style={{ marginBottom: 10 }}>
+            <input type="checkbox" checked={coachOn} onChange={e => setCoachOn(e.target.checked)} />
+            <span>Live coach: suggest questions while you talk
+              <br /><small className="muted">Every few minutes, the last part of the conversation goes to your AI for a suggestion or two. Uses AI tokens; nothing from it is saved.</small>
+            </span>
+          </label>
+        </details>
       )}
 
       <label className="check consent-card">
