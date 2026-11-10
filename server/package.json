@@ -13,7 +13,7 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@simplewebauthn/server": "^13.1.1",
+    "@simplewebauthn/server": "^14.1.0",
     "better-sqlite3": "^11.8.1",
     "cookie-parser": "^1.4.7",
     "express": "^4.21.2",
