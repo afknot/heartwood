@@ -1,5 +1,5 @@
 # ---- 1. Build the web app ----
-FROM node:22-bookworm-slim AS web
+FROM node:26-bookworm-slim AS web
 WORKDIR /web
 COPY web/package*.json ./
 # Packages' own install scripts are a common way in for a hijacked package, so they're off;
@@ -9,7 +9,7 @@ COPY web/ ./
 RUN npm run build
 
 # ---- 2. Install server dependencies (better-sqlite3 may need to compile) ----
-FROM node:22-bookworm-slim AS deps
+FROM node:26-bookworm-slim AS deps
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/server
 COPY server/package*.json ./
@@ -17,7 +17,7 @@ COPY server/package*.json ./
 RUN npm install --omit=dev --no-audit --no-fund --ignore-scripts && npm rebuild better-sqlite3
 
 # ---- 3. Runtime ----
-FROM node:22-bookworm-slim
+FROM node:26-bookworm-slim
 # Changes weekly (deploy/install.sh), so Debian's security updates are picked up even when
 # nothing else in the image changed.
 ARG SECURITY_REFRESH=0
