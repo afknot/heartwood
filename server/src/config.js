@@ -76,7 +76,12 @@ export const DEFAULT_SETTINGS = {
     repo: '',                       // owner/name of your portfolio repo, e.g. you/your-portfolio
     branch: 'main',
     story_dir: 'content/stories',
-    record_path: 'content/career.json'
+    record_path: 'content/career.json',
+    record_format: 'heartwood',     // heartwood | jsonresume (the jsonresume.org standard)
+    story_format: 'heartwood',      // front matter: heartwood (full) | simple (title, date, summary, draft) | none
+    story_sections: '',             // story headings, one per line; empty uses the default six
+    linkedin_url: '',               // your public LinkedIn profile, for quick links
+    portfolio_url: ''               // your public portfolio site
   },
   profile: {
     name: '',

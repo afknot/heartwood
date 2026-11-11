@@ -14,7 +14,7 @@ const RANGES = [
 ];
 const KIND = { initiative: 'Initiative', outcome: 'Outcome', leadership: 'Leadership', decision: 'Decision', feedback: 'Feedback', learning: 'Learning', result: 'Outcome', built: 'Initiative' };
 const DRAFTS = [
-  { k: 'story', label: 'Story', hint: 'A leadership story for your portfolio, in its six-part structure. Exported as a pull request that lands on staging as a draft.' },
+  { k: 'story', label: 'Story', hint: 'A leadership story for your portfolio, in the sections and format you set in Settings. Copy it, download it as Markdown, or export it as a pull request.' },
   { k: 'resume', label: 'Resume', hint: 'Suggested additions and edits to your career record. You pick which to keep, then export them as a pull request.' },
   { k: 'linkedin', label: 'LinkedIn', hint: 'A headline, About section, experience bullets and post ideas to paste into LinkedIn yourself. No job-seeking language.' },
   { k: 'recognition', label: 'Kudos', hint: 'Recognition for someone you work with: a line for your next 1:1, a message to them, a shout-out for the team, and a LinkedIn post and recommendation. Their name stays in; ask before anything public. Also on each person’s page.' }
@@ -255,7 +255,7 @@ function Drafts({ info, drafts, people, selected, initial = {} }) {
 
   return <>
     {gh && !gh.ready && (
-      <div className="banner info"><Icon name="key" size={18} /><span className="grow">To export stories and resume updates to your portfolio, {gh.token ? 'set your portfolio repository' : 'add GITHUB_TOKEN to .env and set your portfolio repository'} in <Link to="/settings/career" state={{ from: 'here' }}>Settings</Link>.</span></div>
+      <div className="banner info"><Icon name="key" size={18} /><span className="grow">Add your LinkedIn and portfolio links, pick a story format, or connect a portfolio repository for pull requests and resume updates in <Link to="/settings/career" state={{ from: 'here' }}>Settings</Link>.</span></div>
     )}
     <section className="card">
       <div className="analysis-head"><Icon name="note" /><h2>New draft</h2></div>

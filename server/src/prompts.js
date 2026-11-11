@@ -448,20 +448,21 @@ ${items.map(x => `- [${x.id}] (${x.kind}${x.date ? `, ${x.date}` : ''}) ${x.text
 
 const evidenceList = items => items.map(x => `- [${x.id}] (${x.kind}, ${x.theme || 'no theme'}${x.date ? `, ${x.date}` : ''}) ${x.text}${x.metric ? ` [metric: ${x.metric}]` : ''}${x.detail ? `\n  Context: ${x.detail}` : ''}`).join('\n');
 
-/** A portfolio leadership story, in the portfolio's six-part structure. */
-export function storyDraftPrompt({ evidence, profile, angle }) {
+/** A portfolio leadership story, in the section structure the writer chose (six parts by default). */
+export function storyDraftPrompt({ evidence, profile, angle, sections }) {
+  const heads = (sections?.length ? sections : ['The situation', 'The hard call', 'What I put in place', 'How the team did the work', 'What changed', 'What I’d do differently']);
   const system = `${CAREER_STANCE}
 
 ${profileBlock(profile)}
 
-Your task: draft one leadership story for the writer's public portfolio from the confirmed evidence below. The reader is a hiring panel for a role like the writer's (see "About the writer"), one level up. The story should show judgment: the situation, the hard call, what the writer put in place, how the team did the work, what changed, and what they'd do differently.
+Your task: draft one leadership story for the writer's public portfolio from the confirmed evidence below. The reader is a hiring panel for a role like the writer's (see "About the writer"), one level up. The story should show judgment, covering each section below in order.
 
 Rules:
 - Use only the evidence. Where something the story needs is missing, write a line starting with "TODO:" that asks the writer for it. Don't fill gaps with guesses.
 - No names of people. Refer to roles ("a team lead", "our operations lead"). No names of vendors unless the evidence names a product the team bought.
 - No job-seeking language.
-- Plain language, first person, short paragraphs. Bulleted lists only in "What I put in place".
-- Section headings exactly: "## The situation", "## The hard call", "## What I put in place", "## How the team did the work", "## What changed", "## What I'd do differently".
+- Plain language, first person, short paragraphs. Use bulleted lists sparingly, where steps or actions read better as a list.
+- Section headings exactly, in this order: ${heads.map(h => `"## ${h}"`).join(', ')}.
 
 Return JSON only:
 {
@@ -475,7 +476,7 @@ Return JSON only:
   "stat": "the single strongest number, under 16 characters, or empty",
   "stat_note": "what that number measures, under 60 characters, or empty",
   "outcomes": ["up to 5 short results"],
-  "body": "the Markdown body with the six sections"
+  "body": "the Markdown body with those sections"
 }`;
   const user = `${angle ? `Angle the writer wants: ${angle}\n\n` : ''}Confirmed evidence:
 ${evidenceList(evidence)}`;
@@ -524,7 +525,7 @@ Rules:
 - No names of people, and nothing confidential. Numbers only when they are safe to share publicly (prefer evidence marked public-safe).
 - Headline under 220 characters. About section 150–300 words, first person, plain language, no buzzwords or emoji.
 - Experience: 3–5 bullets for the current role, each under 30 words.
-- Posts: up to 2 short post ideas the writer could share about their work or what they've learned, each with a draft under 120 words. They must be useful to other designers or leaders, not self-promotion.
+- Posts: up to 2 short post ideas the writer could share about their work or what they've learned, each with a draft under 120 words. They must be useful to others in the writer's field or to other leaders, not self-promotion.
 
 Return JSON only:
 {"headline": "...", "about": "...", "experience": {"title": "...", "org": "...", "bullets": ["..."]}, "posts": [{"idea": "...", "draft": "..."}], "notes": "anything the writer should double-check"}`;

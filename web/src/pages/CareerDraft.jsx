@@ -88,10 +88,11 @@ export default function CareerDraft() {
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState('');
   const [gh, setGh] = useState(null);
+  const [links, setLinks] = useState({});
 
   useEffect(() => {
     api.get(`/career/drafts/${id}`).then(setD).catch(e => notify(e.message));
-    api.get('/career').then(r => setGh(r.github)).catch(() => {});
+    api.get('/career').then(r => { setGh(r.github); setLinks(r.links || {}); }).catch(() => {});
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!d) return <main className="page" />;
@@ -112,6 +113,13 @@ export default function CareerDraft() {
       notify('Pull request opened');
     } catch (e) { notify(e.message); }
     finally { setBusy(''); }
+  }
+  function download() {
+    const slug = String(d.title || 'story').toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/[\s_]+/g, '-').slice(0, 60) || 'story';
+    const url = URL.createObjectURL(new Blob([c], { type: 'text/markdown' }));
+    const a = Object.assign(document.createElement('a'), { href: url, download: `${slug}.md` });
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   async function remove() {
     await api.del(`/career/drafts/${id}`);
@@ -137,12 +145,17 @@ export default function CareerDraft() {
       )}
 
       {d.pr_url && (
-        <div className="banner info"><Icon name="check" size={18} /><span className="grow">Pull request opened. <a href={safeHref(d.pr_url)} target="_blank" rel="noreferrer">Review it on GitHub</a>. Merging puts it on your staging site.</span></div>
+        <div className="banner info"><Icon name="check" size={18} /><span className="grow">Pull request opened. <a href={safeHref(d.pr_url)} target="_blank" rel="noreferrer">Review it on GitHub</a>. Nothing changes on your site until you merge it.</span></div>
       )}
 
       {d.kind === 'story' && (
-        <section className="card">
-          <p className="small muted" style={{ marginTop: 0 }}>The story file as it will appear in your portfolio. Edit freely. Lines starting with TODO: are questions for you; the portfolio won’t publish until they’re gone.</p>
+        <section className="card copy-block">
+          <p className="small muted" style={{ marginTop: 0 }}>The story file for your portfolio, in Markdown. Edit freely. Lines starting with TODO: are questions for you; fill them in or delete them before you publish.</p>
+          <div className="row mb" style={{ flexWrap: 'wrap', gap: 8 }}>
+            <CopyButton text={c} />
+            <button className="btn small" onClick={download}><Icon name="note" size={16} /> Download .md</button>
+            {safeHref(links.portfolio) && <a className="btn small ghost" href={safeHref(links.portfolio)} target="_blank" rel="noreferrer">Open your portfolio</a>}
+          </div>
           <textarea className="textarea mono" rows={24} value={c} onChange={e => set(e.target.value)} aria-label="Story file" />
         </section>
       )}
@@ -169,12 +182,12 @@ export default function CareerDraft() {
                   {x.action === 'replace' && <p className="small muted" style={{ margin: '4px 0' }}><s>{x.current}</s></p>}
                   <textarea className="textarea mt" value={x.text} onChange={e => upd({ text: e.target.value })} />
                   <div className="row mt" style={{ flexWrap: 'wrap' }}>
-                    <label className="row small" style={{ gap: 6 }}>Show on
+                    {c.format !== 'jsonresume' && <label className="row small" style={{ gap: 6 }}>Show on
                       <select className="select" value={x.visibility} onChange={e => upd({ visibility: e.target.value })} style={{ width: 'auto', minHeight: 34 }}>
                         <option value="resume">Resume only</option>
                         <option value="public">Resume and public site</option>
                       </select>
-                    </label>
+                    </label>}
                     {x.why && <span className="small muted">{x.why}</span>}
                   </div>
                 </div>
@@ -186,7 +199,10 @@ export default function CareerDraft() {
 
       {d.kind === 'linkedin' && (
         <section className="card">
-          <p className="small muted" style={{ marginTop: 0 }}>Paste these into LinkedIn yourself. Heartwood never posts or edits your profile.</p>
+          <div className="row" style={{ flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+            <p className="small muted grow" style={{ margin: 0 }}>Paste these into LinkedIn yourself. Heartwood never posts or edits your profile.</p>
+            {safeHref(links.linkedin) && <a className="btn small primary" href={safeHref(links.linkedin)} target="_blank" rel="noreferrer">Open your profile</a>}
+          </div>
           <CopyBlock label="Headline" value={c.headline || ''} limit={220} rows={2} onChange={v => set({ ...c, headline: v })} />
           <CopyBlock label="About" value={c.about || ''} limit={2600} rows={10} onChange={v => set({ ...c, about: v })} />
           <CopyBlock label={`Experience: ${c.experience?.title || ''}${c.experience?.org ? `, ${c.experience.org}` : ''}`}
@@ -212,7 +228,7 @@ export default function CareerDraft() {
           </button>
         )}
       </div>
-      {exportable && gh && !gh.ready && <p className="small muted">Set up exports in Settings → Career record.</p>}
+      {exportable && gh && !gh.ready && <p className="small muted">{d.kind === 'story' ? 'Copy or download the story above, or connect' : 'Connect'} a portfolio repository in Settings → Career export to open a pull request.</p>}
     </main>
   );
 }

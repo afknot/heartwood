@@ -17,7 +17,7 @@ const SECTIONS = [
   { k: 'meetings', icon: 'calendar', title: 'Meetings & calendar', sub: 'Recurring 1:1s, meeting invites, calendar link' },
   { k: 'notifications', icon: 'today', title: 'Notifications', sub: 'Morning summary, before and after meetings, weekly debrief' },
   { k: 'ai', icon: 'sparkle', title: 'AI & transcription', sub: 'Providers, models and what runs automatically' },
-  { k: 'career', icon: 'career', title: 'Career export', sub: 'Your portfolio repository for stories and resume updates' },
+  { k: 'career', icon: 'career', title: 'Career export', sub: 'Your LinkedIn and portfolio links, story format, and where exports go' },
   { k: 'data', icon: 'archive', title: 'Your data & backups', sub: 'Export everything, encrypted backups' },
   { k: 'security', icon: 'key', title: 'Sign-in & security', sub: 'Passkeys, password, sign out' },
   { k: 'updates', icon: 'retry', title: 'Updates', sub: 'Automatic updates and the version you’re on' }
@@ -184,7 +184,7 @@ export default function Settings() {
       </>}
 
       {section === 'career' && <>
-        <p className="muted small" style={{ marginTop: -4 }}>Lets Heartwood open pull requests on your portfolio repository with story drafts and resume updates you approve. It never changes your main branch, and your journal never leaves this server.</p>
+        <p className="muted small" style={{ marginTop: -4 }}>Set up Heartwood for your own portfolio and LinkedIn. Stories can always be copied or downloaded as Markdown. Connect a GitHub repository and Heartwood can also open pull requests with stories and resume updates you approve. It never changes your main branch, and your journal never leaves this server.</p>
         <CareerSettings career={s.career || {}} onChange={c => update({ career: { ...s.career, ...c } }, { debounce: true })} />
       </>}
 
@@ -302,16 +302,54 @@ function Toggle({ label, hint, checked, onChange }) {
   );
 }
 
+const STORY_SECTIONS_DEFAULT = 'The situation\nThe hard call\nWhat I put in place\nHow the team did the work\nWhat changed\nWhat I’d do differently';
+const noAuto = { autoCapitalize: 'off', autoCorrect: 'off', spellCheck: 'false' };
+
 function CareerSettings({ career, onChange }) {
   const [gh, setGh] = useState(null);
   const [conn, setConn] = useConnections();
   useEffect(() => { api.get('/career').then(r => setGh(r.github)).catch(() => {}); }, [career.repo]);
   return <>
-    <label className="field"><span>Portfolio repository</span>
-      <input className="input" value={career.repo || ''} onChange={e => onChange({ repo: e.target.value.trim() })} placeholder="owner/repository" autoCapitalize="off" autoCorrect="off" spellCheck="false" />
+    <h2 className="section-title" style={{ marginTop: 4 }}>Your links</h2>
+    <label className="field"><span>LinkedIn profile <small>(optional)</small></span>
+      <input className="input" type="url" inputMode="url" value={career.linkedin_url || ''} onChange={e => onChange({ linkedin_url: e.target.value.trim() })} placeholder="https://www.linkedin.com/in/your-name" {...noAuto} />
+    </label>
+    <label className="field"><span>Portfolio site <small>(optional)</small></span>
+      <input className="input" type="url" inputMode="url" value={career.portfolio_url || ''} onChange={e => onChange({ portfolio_url: e.target.value.trim() })} placeholder="https://your-site.com" {...noAuto} />
+    </label>
+    <p className="small muted" style={{ marginTop: -4 }}>Shown as quick links next to your drafts, so you can paste straight into your profile or site.</p>
+
+    <h2 className="section-title">Story format</h2>
+    <label className="field"><span>Front matter</span>
+      <select className="select" value={career.story_format || 'heartwood'} onChange={e => onChange({ story_format: e.target.value })}>
+        <option value="heartwood">Full: title, summary, role, timeframe, stat, outcomes, status</option>
+        <option value="simple">Simple: title, date, summary, draft (Hugo, Jekyll, Astro, Eleventy…)</option>
+        <option value="none">None: plain Markdown</option>
+      </select>
+    </label>
+    <label className="field"><span>Section headings <small>(one per line, in order)</small></span>
+      <textarea className="textarea" rows={6} value={career.story_sections || ''} onChange={e => onChange({ story_sections: e.target.value })} placeholder={STORY_SECTIONS_DEFAULT} />
+    </label>
+    <p className="small muted" style={{ marginTop: -4 }}>Leave empty to use the six shown. Applies to new story drafts.</p>
+
+    <h2 className="section-title">Portfolio repository <small className="muted" style={{ fontWeight: 400 }}>(optional)</small></h2>
+    <label className="field"><span>Repository</span>
+      <input className="input" value={career.repo || ''} onChange={e => onChange({ repo: e.target.value.trim() })} placeholder="owner/repository" {...noAuto} />
     </label>
     <label className="field"><span>Branch to open pull requests against</span>
-      <input className="input" value={career.branch || 'main'} onChange={e => onChange({ branch: e.target.value.trim() })} autoCapitalize="off" spellCheck="false" />
+      <input className="input" value={career.branch || 'main'} onChange={e => onChange({ branch: e.target.value.trim() })} {...noAuto} />
+    </label>
+    <label className="field"><span>Folder for stories</span>
+      <input className="input" value={career.story_dir || ''} onChange={e => onChange({ story_dir: e.target.value.trim() })} placeholder="content/stories" {...noAuto} />
+    </label>
+    <label className="field"><span>Career record file <small>(for resume updates)</small></span>
+      <input className="input" value={career.record_path || ''} onChange={e => onChange({ record_path: e.target.value.trim() })} placeholder="content/career.json" {...noAuto} />
+    </label>
+    <label className="field"><span>Career record format</span>
+      <select className="select" value={career.record_format || 'heartwood'} onChange={e => onChange({ record_format: e.target.value })}>
+        <option value="jsonresume">JSON Resume (jsonresume.org): work[].highlights</option>
+        <option value="heartwood">Heartwood: roles[].highlights with visibility</option>
+      </select>
     </label>
     {conn && <div className="card" style={{ marginBottom: 12 }}>
       <KeyField name="github_token" info={conn.github_token} label="GitHub token" test="github" onSaved={next => { setConn(next); api.get('/career').then(r => setGh(r.github)).catch(() => {}); }}
@@ -320,7 +358,7 @@ function CareerSettings({ career, onChange }) {
     {gh && (
       <div className={`banner ${gh.ready ? 'info' : 'warn'}`}>
         <Icon name={gh.ready ? 'check' : 'key'} size={18} />
-        <span className="grow">{gh.ready ? 'Ready to export.' : gh.token ? 'Add your repository above to export.' : 'Add the GitHub token above to export.'}</span>
+        <span className="grow">{gh.ready ? 'Ready to export pull requests.' : gh.token ? 'Add your repository above to export pull requests.' : 'Add the GitHub token above to export pull requests. Without it, copy or download your stories.'}</span>
       </div>
     )}
   </>;

@@ -9,7 +9,7 @@ import { config } from './config.js';
 import { complete } from './llm.js';
 import { evidencePrompt, evidenceCombinePrompt, storyDraftPrompt, resumeDraftPrompt, linkedinKitPrompt, recognitionPrompt, CAREER_THEMES } from './prompts.js';
 import { fitToBudget, latestGrowth } from './briefs.js';
-import { removeNamesFrom, checkText, storyMarkdown, slugify } from './career-text.js';
+import { removeNamesFrom, checkText, storyMarkdown, storySections, slugify, normalizeRecord, applyResumeChanges } from './career-text.js';
 export { slugify };
 
 export class CareerError extends Error {}
@@ -134,7 +134,14 @@ export { checkText };
 // ---------- GitHub (portfolio repo) ----------
 export function githubStatus() {
   const c = getSettings().career || {};
-  return { token: !!config.githubToken, repo: c.repo || '', branch: c.branch || 'main', ready: !!(config.githubToken && c.repo) };
+  return { token: !!config.githubToken, repo: c.repo || '', branch: c.branch || 'main', ready: !!(config.githubToken && c.repo), record_format: c.record_format || 'heartwood' };
+}
+
+/** Your public profile links from Settings → Career export (https only). */
+export function careerLinks() {
+  const c = getSettings().career || {};
+  const ok = u => { try { return new URL(u).protocol === 'https:' ? u : ''; } catch { return ''; } };
+  return { linkedin: ok(c.linkedin_url), portfolio: ok(c.portfolio_url) };
 }
 
 async function gh(method, path, body) {
@@ -162,7 +169,7 @@ async function gh(method, path, body) {
 function repoOrThrow() {
   const s = githubStatus();
   if (!s.token) throw new CareerError('Add GITHUB_TOKEN to .env and restart Heartwood to export.');
-  if (!s.repo) throw new CareerError('Set your portfolio repository in Settings → Career record.');
+  if (!s.repo) throw new CareerError('Set your portfolio repository in Settings → Career export.');
   return s;
 }
 
@@ -179,12 +186,18 @@ async function readRepoFile(path, ref) {
   }
 }
 
+/** The career record from your repo: the file as it is (raw) and in one shape Heartwood reads (record). */
 export async function readCareerRecord() {
   const { branch } = repoOrThrow();
-  const path = getSettings().career.record_path;
+  const { record_path: path, record_format: format = 'heartwood' } = getSettings().career;
   const f = await readRepoFile(path, branch);
   if (!f) throw new CareerError(`Couldn't find ${path} in your portfolio repo.`);
-  return { ...f, record: safeJson(f.text, null) };
+  const raw = safeJson(f.text, null);
+  const n = normalizeRecord(raw, format);
+  if (!n) throw new CareerError(format === 'jsonresume'
+    ? `${path} doesn’t look like a JSON Resume file (it needs a "work" list). Check the format in Settings → Career export.`
+    : `${path} isn’t in Heartwood’s career record format (it needs a "roles" list). If it’s a JSON Resume file, choose that format in Settings → Career export.`);
+  return { ...f, raw, format, record: { basics: { summary: n.summary }, roles: n.roles } };
 }
 
 /** Create a branch, commit files to it, and open a pull request. Never touches the main branch. */
@@ -251,17 +264,17 @@ export async function createDraft({ kind, angle = '', evidenceIds = [], current 
   }
   if (kind === 'story') {
     const evidence = pickEvidence(evidenceIds);
-    const { system, messages } = storyDraftPrompt({ evidence, profile, angle: clip(angle, 500) });
+    const c = getSettings().career || {};
+    const { system, messages } = storyDraftPrompt({ evidence, profile, angle: clip(angle, 500), sections: storySections(c.story_sections) });
     const d = await complete({ system, messages, json: true, maxTokens: 6000, task: 'career' });
-    const { text, replaced, ambiguous } = removeNames(storyMarkdown(d || {}));
+    const { text, replaced, ambiguous } = removeNames(storyMarkdown(d || {}, { format: c.story_format }));
     const flags = checkText(text, { replaced, ambiguous });
     if (evidence.some(e => !e.public_ok)) flags.unshift({ level: 'warn', text: 'Uses evidence you haven’t marked as OK to share publicly. Review those details.' });
     return saveDraft({ kind, title: d?.title || 'Story draft', content: text, flags, evidence });
   }
   if (kind === 'resume') {
     const evidence = pickEvidence(evidenceIds);
-    const { record } = await readCareerRecord();
-    if (!record?.roles) throw new CareerError('The career record in your portfolio repo isn’t in the expected format.');
+    const { record, format } = await readCareerRecord();
     const { system, messages } = resumeDraftPrompt({ evidence, profile, record });
     const d = await complete({ system, messages, json: true, maxTokens: 5000, task: 'career' });
     const roleIds = new Set(record.roles.map(r => r.id));
@@ -280,7 +293,7 @@ export async function createDraft({ kind, angle = '', evidenceIds = [], current 
     const flags = checkText([summary, ...changes.map(c => c.text)].join('\n'), { replaced: changes.reduce((n, c) => n + c.names_replaced, 0), ambiguous: [...new Set(changes.flatMap(c => c.ambiguous))] });
     for (const c of changes) { delete c.ambiguous; }
     if (!changes.length && !summary) flags.push({ level: 'info', text: 'Your resume already reflects this evidence. Nothing to change.' });
-    return saveDraft({ kind, title: `Resume updates, ${now().slice(0, 10)}`, content: { changes, summary, summary_accepted: !!summary }, flags, evidence });
+    return saveDraft({ kind, title: `Resume updates, ${now().slice(0, 10)}`, content: { changes, summary, summary_accepted: !!summary, format }, flags, evidence });
   }
   if (kind === 'linkedin') {
     const evidence = pickEvidence(evidenceIds);
@@ -329,34 +342,29 @@ export async function exportDraft(id) {
   const s = getSettings().career;
   let url;
   if (row.kind === 'story') {
-    const title = (row.content.match(/^title:\s*"?(.+?)"?\s*$/m) || [])[1] || row.title;
+    const title = (row.content.match(/^title:\s*"?(.+?)"?\s*$/m) || row.content.match(/^#\s+(.+?)\s*$/m) || [])[1] || row.title;
+    const draftNote = /^status:\s*draft\s*$/m.test(row.content) ? '- Arrives as `status: draft`. Set `status: published` when it’s ready.'
+      : /^draft:\s*true\s*$/m.test(row.content) ? '- Arrives as `draft: true`. Remove it or set it to `false` when it’s ready.'
+      : '- Review it on this branch before you merge.';
     let slug = slugify(title);
     const { branch } = repoOrThrow();
     if (await readRepoFile(`${s.story_dir}/${slug}.md`, branch)) slug = `${slug}-${Date.now().toString(36).slice(-4)}`;
     url = await openPullRequest({
       slug, title: `Story draft: ${title}`,
       files: [{ path: `${s.story_dir}/${slug}.md`, content: row.content, message: `Add story draft from Heartwood: ${title}` }],
-      body: `A story draft exported from Heartwood.\n\n- Arrives as \`status: draft\`, so it shows on staging only.\n- Names of people Heartwood knows were replaced with role labels.\n- Fill in any \`TODO:\` notes, then set \`status: published\`.\n\nChecks at export:\n${safeJson(row.flags, []).map(f => `- ${f.text}`).join('\n') || '- None'}`
+      body: `A story draft exported from Heartwood.\n\n${draftNote}\n- Names of people Heartwood knows were replaced with role labels.\n- Fill in or remove any \`TODO:\` notes before publishing.\n\nChecks at export:\n${safeJson(row.flags, []).map(f => `- ${f.text}`).join('\n') || '- None'}`
     });
   } else if (row.kind === 'resume') {
     const c = safeJson(row.content, {});
     const accepted = (c.changes || []).filter(x => x.accepted);
     if (!accepted.length && !(c.summary && c.summary_accepted)) throw new CareerError('Pick at least one change to export.');
-    const { record } = await readCareerRecord();
-    const next = structuredClone(record);
-    for (const x of accepted) {
-      const role = next.roles.find(r => r.id === x.role_id);
-      if (!role) continue;
-      role.highlights ||= [];
-      const item = { text: x.text, visibility: x.visibility, source: 'heartwood' };
-      if (x.action === 'replace' && Number.isInteger(x.index) && role.highlights[x.index]?.text === x.current) role.highlights[x.index] = item;
-      else role.highlights.push(item);
-    }
-    if (c.summary && c.summary_accepted) next.basics = { ...next.basics, summary: c.summary };
+    const { raw, format } = await readCareerRecord();
+    if ((c.format || 'heartwood') !== format) throw new CareerError('Your career record format changed since this draft was written. Write a new resume draft.');
+    const next = applyResumeChanges(raw, format, accepted, c.summary && c.summary_accepted ? c.summary : '');
     url = await openPullRequest({
       slug: 'resume-updates', title: 'Resume updates from Heartwood',
       files: [{ path: s.record_path, content: JSON.stringify(next, null, 2) + '\n', message: 'Update career record from Heartwood' }],
-      body: `Suggested resume updates you approved in Heartwood.\n\n${accepted.map(x => `- **${x.action === 'replace' ? 'Replace' : 'Add'}** (${x.role_label || x.role_id}): ${x.text}`).join('\n')}${c.summary && c.summary_accepted ? `\n- **New summary:** ${c.summary}` : ''}\n\nMerging regenerates the resume. Items marked \`resume\` never appear on the public site.`
+      body: `Suggested resume updates you approved in Heartwood.\n\n${accepted.map(x => `- **${x.action === 'replace' ? 'Replace' : 'Add'}** (${x.role_label || x.role_id}): ${x.text}`).join('\n')}${c.summary && c.summary_accepted ? `\n- **New summary:** ${c.summary}` : ''}${format === 'heartwood' ? '\n\nItems marked `resume` are meant for the resume only, not the public site.' : ''}`
     });
   } else {
     throw new CareerError('You copy this draft into LinkedIn yourself. There’s nothing to export.');

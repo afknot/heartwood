@@ -55,6 +55,7 @@ Record your 1:1s and voice memos, or just write. Heartwood turns them into notes
 
 **Your career**
 - **Career record**: Heartwood finds evidence of your own work in your notes (initiatives you led and their outcomes, how you lead, big decisions, feedback you received) and suggests items to keep. From those it drafts portfolio stories, resume updates and LinkedIn posts. Names are swapped for roles, and drafts only reach your portfolio as pull requests you approve.
+  - **Works with your own portfolio**: in Settings → Career export, add your LinkedIn and portfolio links, choose the story's front matter (full, simple for Hugo/Jekyll/Astro/Eleventy, or plain Markdown) and its section headings. Copy or download any story without connecting anything. To get pull requests, connect a GitHub repository and set the stories folder and career record file. Resume updates read either [JSON Resume](https://jsonresume.org/schema) (`work[].highlights`) or Heartwood's own format (`roles[].highlights`).
 
 **Around it**
 - **Phone notifications**: a morning summary, a heads-up before conversations, a "How did it go?" nudge afterwards, and the weekly debrief.
