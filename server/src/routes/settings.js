@@ -8,7 +8,7 @@ import { vaultStatus, vaultSet, VAULT_FIELDS } from '../vault.js';
 import { checkInbox } from '../invites.js';
 import { backupInfo, requestBackup, setupBackups, startDrive, finishDrive, BackupError } from '../backups.js';
 import { kindLabel, plainMentions } from '../prompts.js';
-import { STORY_FORMATS, RECORD_FORMATS } from '../career-text.js';
+import { STORY_FORMATS, RECORD_FORMATS, JOB_STATUSES } from '../career-text.js';
 import { usageSummary } from '../llm.js';
 
 export const settings = express.Router();
@@ -85,6 +85,7 @@ settings.put('/settings', (req, res) => {
     for (const k of ['story_dir', 'record_path', 'branch']) if (c[k] && /(^\/|\.\.)/.test(c[k])) return res.status(400).json({ error: 'Paths must stay inside the repository.' });
     if (c.story_format && !STORY_FORMATS.includes(c.story_format)) return res.status(400).json({ error: 'Pick a story format.' });
     if (c.record_format && !RECORD_FORMATS.includes(c.record_format)) return res.status(400).json({ error: 'Pick a career record format.' });
+    if (c.job_status && !JOB_STATUSES.includes(c.job_status)) return res.status(400).json({ error: 'Pick where you are in your career.' });
     for (const k of ['linkedin_url', 'portfolio_url']) {
       if (!c[k]) continue;
       if (!/^[a-z][a-z\d+.-]*:/i.test(c[k])) c[k] = `https://${c[k]}`; // "linkedin.com/in/you" is fine

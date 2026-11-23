@@ -38,14 +38,21 @@ export function removeNamesFrom(text, people = []) {
 const JOB_SEEKING = /\b(open to (new )?(work|roles|opportunities)|looking for (my )?(next|a new) (role|position|opportunity|challenge)|seeking (a )?(new )?(role|position|opportunit)|job (search|hunt)|next chapter|available for (hire|new roles)|hire me|actively interviewing)\b/i;
 
 /** Things to check before a draft leaves Heartwood. */
-export function checkText(text, { replaced = 0, ambiguous = [] } = {}) {
+/** Where the writer is in their career, set in Settings → Career export. Decides the job-seeking check. */
+export const JOB_STATUSES = ['employed', 'quiet', 'open'];
+
+export function checkText(text, { replaced = 0, ambiguous = [], jobStatus = 'employed' } = {}) {
   const t = String(text || '');
   const flags = [];
   if (ambiguous.length) flags.push({ level: 'warn', text: `More than one person in Heartwood is named ${ambiguous.join(', ')}, so those names were left in. Replace them by hand.` });
   if (replaced) flags.push({ level: 'info', text: `Replaced ${replaced} name${replaced > 1 ? 's' : ''} of people in Heartwood with role labels. Check they read naturally.` });
   if (/[\w.+-]+@[\w-]+\.[\w.]+/.test(t)) flags.push({ level: 'warn', text: 'Contains an email address.' });
   if (/\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}/.test(t)) flags.push({ level: 'warn', text: 'Contains what looks like a phone number.' });
-  if (JOB_SEEKING.test(t)) flags.push({ level: 'warn', text: 'Contains job-seeking language. Your employer and team can see this.' });
+  if (jobStatus !== 'open' && JOB_SEEKING.test(t)) {
+    flags.push({ level: 'warn', text: jobStatus === 'quiet'
+      ? 'Contains job-seeking language. You’re looking quietly, and your employer and team can see this.'
+      : 'Contains job-seeking language. Your employer and team can see this. If you’re between roles or openly looking, say so in Settings → Career export.' });
+  }
   const todos = (t.match(/TODO:/g) || []).length;
   if (todos) flags.push({ level: 'info', text: `${todos} TODO note${todos > 1 ? 's' : ''} to fill in. Fill them in or delete them before you publish.` });
   // Pairs of capitalized words mid-sentence may be names Heartwood doesn't know.

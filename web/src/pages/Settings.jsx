@@ -310,7 +310,19 @@ function CareerSettings({ career, onChange }) {
   const [conn, setConn] = useConnections();
   useEffect(() => { api.get('/career').then(r => setGh(r.github)).catch(() => {}); }, [career.repo]);
   return <>
-    <h2 className="section-title" style={{ marginTop: 4 }}>Your links</h2>
+    <h2 className="section-title" style={{ marginTop: 4 }}>Where you are</h2>
+    <label className="field"><span>Your situation</span>
+      <select className="select" value={career.job_status || 'employed'} onChange={e => onChange({ job_status: e.target.value })}>
+        <option value="employed">In a role, not looking</option>
+        <option value="quiet">In a role, looking quietly</option>
+        <option value="open">Between roles, or looking openly</option>
+      </select>
+    </label>
+    <p className="small muted" style={{ marginTop: -4 }}>{career.job_status === 'open'
+      ? 'LinkedIn drafts can say you’re open to new roles, and Heartwood stops warning about job-seeking language.'
+      : 'Heartwood keeps job-seeking language out of LinkedIn drafts and warns you if it appears, because your employer and team can see it.'}</p>
+
+    <h2 className="section-title">Your links</h2>
     <label className="field"><span>LinkedIn profile <small>(optional)</small></span>
       <input className="input" type="url" inputMode="url" value={career.linkedin_url || ''} onChange={e => onChange({ linkedin_url: e.target.value.trim() })} placeholder="https://www.linkedin.com/in/your-name" {...noAuto} />
     </label>

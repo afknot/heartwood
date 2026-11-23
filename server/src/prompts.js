@@ -513,7 +513,13 @@ ${evidenceList(evidence)}`;
 }
 
 /** LinkedIn update kit: text the writer pastes into LinkedIn themselves. */
-export function linkedinKitPrompt({ evidence, profile, record, current }) {
+const JOB_RULE = {
+  employed: 'Their current employer and team can see LinkedIn. No job-seeking language at all: no "open to", "looking for", "next chapter", "seeking", "opportunities", "available".',
+  quiet: 'They are looking for a new role quietly, and their current employer and team can see LinkedIn. No job-seeking language at all: no "open to", "looking for", "next chapter", "seeking", "opportunities", "available". Make the profile strong for recruiters without saying they are looking.',
+  open: 'They are between roles or openly looking, and want people to know. End the About with one plain line on the kind of role they want next (from "About the writer"; if it isn\'t there, write "TODO: the role you want next"). One post may say they are looking: confident and specific, never desperate. Treat the most recent role as just ended, in the past tense.'
+};
+
+export function linkedinKitPrompt({ evidence, profile, record, current, jobStatus = 'employed' }) {
   const system = `${CAREER_STANCE}
 
 ${profileBlock(profile)}
@@ -521,7 +527,7 @@ ${profileBlock(profile)}
 Your task: write a LinkedIn update kit the writer will review and paste into LinkedIn themselves.
 
 Rules:
-- Their current employer and team can see LinkedIn. No job-seeking language at all: no "open to", "looking for", "next chapter", "seeking", "opportunities", "available".
+- ${JOB_RULE[jobStatus] || JOB_RULE.employed}
 - No names of people, and nothing confidential. Numbers only when they are safe to share publicly (prefer evidence marked public-safe).
 - Headline under 220 characters. About section 150–300 words, first person, plain language, no buzzwords or emoji.
 - Experience: 3–5 bullets for the current role, each under 30 words.

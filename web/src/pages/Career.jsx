@@ -3,6 +3,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import Icon from '../components/Icon.jsx';
 import ReflectNav from '../components/ReflectNav.jsx';
+import { VoiceTextarea } from '../components/VoiceInput.jsx';
+import { deletingDrafts } from './CareerDraft.jsx';
 import { useApp } from '../lib/context.js';
 import { formatDate, isoDay } from '../lib/format.js';
 
@@ -94,9 +96,9 @@ export default function Career() {
       </div>
       <p className="muted" style={{ marginTop: 0 }}>A private record of your own work, pulled from your journal and confirmed by you. Use it to draft portfolio stories, resume updates and LinkedIn posts. Nothing leaves Heartwood unless you export or copy it.</p>
 
-      <div className="seg mb" role="tablist" aria-label="Career record">
-        <button role="tab" aria-selected={tab === 'evidence'} className={tab === 'evidence' ? 'on' : ''} onClick={() => setTab('evidence')}>Evidence{suggested.length ? ` (${suggested.length} new)` : ''}</button>
-        <button role="tab" aria-selected={tab === 'drafts'} className={tab === 'drafts' ? 'on' : ''} onClick={() => setTab('drafts')}>Drafts</button>
+      <div className="seg mb" role="group" aria-label="Show">
+        <button aria-pressed={tab === 'evidence'} className={tab === 'evidence' ? 'on' : ''} onClick={() => setTab('evidence')}>Evidence{suggested.length ? ` (${suggested.length} new)` : ''}</button>
+        <button aria-pressed={tab === 'drafts'} className={tab === 'drafts' ? 'on' : ''} onClick={() => setTab('drafts')}>Drafts</button>
       </div>
 
       {tab === 'evidence' && <>
@@ -212,7 +214,9 @@ function AddEvidence({ themes, onAdded }) {
   }
   return (
     <div className="mt">
-      <label className="field"><span>What you did</span><textarea className="textarea" value={text} onChange={e => setText(e.target.value)} placeholder="One sentence, in your words. For example: Negotiated a new research tool contract that cut cost per participant." /></label>
+      <div className="field"><span>What you did</span>
+        <VoiceTextarea value={text} onChange={setText} rows={3} label="What you did" placeholder="One sentence, in your words, or tap the mic and say it. For example: Negotiated a new research tool contract that cut cost per participant." />
+      </div>
       <div className="row">
         <label className="field grow"><span>Theme</span><select className="select" value={theme} onChange={e => setTheme(e.target.value)}>{themes.map(t => <option key={t}>{t}</option>)}</select></label>
         <label className="field grow"><span>When</span><input className="input" type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
@@ -252,18 +256,25 @@ function Drafts({ info, drafts, people, selected, initial = {} }) {
   }
   const needsGitHub = kind === 'resume' && !gh?.ready;
   const def = DRAFTS.find(d => d.k === kind);
+  const hint = kind === 'linkedin' && info?.job_status === 'open'
+    ? 'A headline, About section, experience bullets and post ideas to paste into LinkedIn yourself. You said you’re looking openly, so they can say so.'
+    : def.hint;
+  const linksSet = !!(info?.links?.linkedin || info?.links?.portfolio);
+  const [hideSetup, setHideSetup] = useState(() => { try { return localStorage.getItem('hw:career-setup-hidden') === '1'; } catch { return false; } });
+  const dismissSetup = () => { setHideSetup(true); try { localStorage.setItem('hw:career-setup-hidden', '1'); } catch { /* fine */ } };
 
   return <>
-    {gh && !gh.ready && (
-      <div className="banner info"><Icon name="key" size={18} /><span className="grow">Add your LinkedIn and portfolio links, pick a story format, or connect a portfolio repository for pull requests and resume updates in <Link to="/settings/career" state={{ from: 'here' }}>Settings</Link>.</span></div>
+    {gh && !gh.ready && !linksSet && !hideSetup && (
+      <div className="banner info"><Icon name="key" size={18} /><span className="grow">Stories work as they are: copy them or download Markdown. In <Link to="/settings/career" state={{ from: 'here' }}>Settings</Link> you can add your LinkedIn and portfolio links, choose a story format, or connect GitHub for pull requests.</span>
+        <button className="btn small ghost" onClick={dismissSetup}>Hide</button></div>
     )}
     <section className="card">
       <div className="analysis-head"><Icon name="note" /><h2>New draft</h2></div>
       <div className="seg mb">{DRAFTS.map(d => <button key={d.k} aria-pressed={kind === d.k} className={kind === d.k ? 'on' : ''} onClick={() => setKind(d.k)}>{d.label}</button>)}</div>
-      <p className="small muted" style={{ marginTop: 0 }}>{def.hint}</p>
+      <p className="small muted" style={{ marginTop: 0 }}>{hint}</p>
       {kind !== 'recognition' && <p className="small" style={{ marginTop: 0 }}>{selected.length ? `Uses the ${selected.length} item${selected.length > 1 ? 's' : ''} you selected.` : 'Uses everything in your record.'}</p>}
       {kind === 'story' && (
-        <label className="field"><span>Angle <small>(optional)</small></span><input className="input" value={angle} onChange={e => setAngle(e.target.value)} placeholder="For example: how we made research faster" /></label>
+        <div className="field"><span>Angle <small>(optional)</small></span><VoiceTextarea value={angle} onChange={setAngle} rows={2} label="Angle" placeholder="For example: how we made research faster" /></div>
       )}
       {kind === 'linkedin' && (
         <label className="field"><span>Your current LinkedIn headline and About <small>(optional, for comparison)</small></span><textarea className="textarea" value={current} onChange={e => setCurrent(e.target.value)} /></label>
@@ -279,7 +290,7 @@ function Drafts({ info, drafts, people, selected, initial = {} }) {
           <div className="small muted" style={{ marginBottom: 6 }}>Recent wins from their growth record</div>
           <div className="chips mb">{wins.map((w, i) => <button key={i} className="chip" onClick={() => setWin(w.text)}>{w.text.length > 70 ? `${w.text.slice(0, 70)}…` : w.text}</button>)}</div>
         </>}
-        <label className="field"><span>What you want to recognize</span><textarea className="textarea" value={win} onChange={e => setWin(e.target.value)} placeholder="What they did and why it mattered" /></label>
+        <div className="field"><span>What you want to recognize</span><VoiceTextarea value={win} onChange={setWin} rows={3} label="What you want to recognize" placeholder="What they did and why it mattered" /></div>
       </>}
       <button className="btn primary block" onClick={create} disabled={busy || needsGitHub || (kind === 'recognition' && (!personId || !win.trim()))}>
         {busy ? <><span className="spinner" /> Writing…</> : <><Icon name="sparkle" size={18} /> Write draft</>}
@@ -287,9 +298,9 @@ function Drafts({ info, drafts, people, selected, initial = {} }) {
       {needsGitHub && <p className="small muted">Resume updates read your career record from your portfolio repo, so set that up first.</p>}
     </section>
 
-    {drafts.length > 0 && <>
+    {drafts.some(d => !deletingDrafts.has(d.id)) && <>
       <h2 className="day-label">Past drafts</h2>
-      {drafts.map(d => (
+      {drafts.filter(d => !deletingDrafts.has(d.id)).map(d => (
         <Link key={d.id} to={`/career/drafts/${d.id}`} className="entry-item">
           <h3>{d.title}</h3>
           <div className="entry-meta" style={{ marginTop: 2 }}>

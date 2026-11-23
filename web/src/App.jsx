@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, lazy, Suspense } from 'react';
+import { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react';
 import { AppCtx } from './lib/context.js';
 import { Routes, Route, NavLink, Link, useLocation } from 'react-router-dom';
 import { api } from './api.js';
@@ -62,11 +62,17 @@ watchViewport();
 export default function App() {
   const [authed, setAuthed] = useState(null);
   const [people, setPeople] = useState([]);
-  const [toast, setToast] = useState('');
+  const [toast, setToast] = useState(null);
+  const toastTimer = useRef();
   const loc = useLocation();
 
   const refreshPeople = useCallback(() => api.get('/people').then(setPeople).catch(() => {}), []);
-  const notify = useCallback(msg => { setToast(msg); setTimeout(() => setToast(''), 2800); }, []);
+  // notify('Saved'), or notify('Draft deleted', { action: { label: 'Undo', onClick } }) for a toast with a button.
+  const notify = useCallback((msg, opts = {}) => {
+    clearTimeout(toastTimer.current);
+    setToast({ msg, action: opts.action });
+    toastTimer.current = setTimeout(() => setToast(null), opts.action ? 6000 : 2800);
+  }, []);
 
   useEffect(() => {
     api.get('/auth/me').then(r => setAuthed(r.authed)).catch(() => setAuthed(false));
@@ -138,7 +144,12 @@ export default function App() {
         </Routes>
         </Suspense>
         {!hideTabs && <TabBar dock={dock} people={people} />}
-        {toast && <div className="toast" role="status">{toast}</div>}
+        <div className="toast-region" role="status" aria-live="polite">
+          {toast && <div className="toast">
+            <span>{toast.msg}</span>
+            {toast.action && <button type="button" className="toast-action" onClick={() => { clearTimeout(toastTimer.current); setToast(null); toast.action.onClick(); }}>{toast.action.label}</button>}
+          </div>}
+        </div>
       </div>
     </AppCtx.Provider>
   );

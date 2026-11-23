@@ -1,7 +1,7 @@
 import express from 'express';
 import { db } from '../db.js';
 import {
-  combineEvidence, CareerError, listEvidence, extractEvidence, updateEvidence, addEvidence, githubStatus, careerLinks,
+  combineEvidence, CareerError, listEvidence, extractEvidence, updateEvidence, addEvidence, githubStatus, careerLinks, jobStatus,
   createDraft, updateDraft, exportDraft, draftOut
 } from '../career.js';
 import { CAREER_THEMES } from '../prompts.js';
@@ -19,7 +19,7 @@ const handle = fn => async (req, res, next) => {
 
 career.get('/career', (req, res) => {
   const counts = Object.fromEntries(db.prepare('SELECT status, COUNT(*) AS n FROM evidence GROUP BY status').all().map(r => [r.status, r.n]));
-  res.json({ github: githubStatus(), links: careerLinks(), counts, themes: CAREER_THEMES });
+  res.json({ github: githubStatus(), links: careerLinks(), job_status: jobStatus(), counts, themes: CAREER_THEMES });
 });
 
 // ---------- evidence ----------

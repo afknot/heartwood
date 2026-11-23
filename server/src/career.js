@@ -9,7 +9,7 @@ import { config } from './config.js';
 import { complete } from './llm.js';
 import { evidencePrompt, evidenceCombinePrompt, storyDraftPrompt, resumeDraftPrompt, linkedinKitPrompt, recognitionPrompt, CAREER_THEMES } from './prompts.js';
 import { fitToBudget, latestGrowth } from './briefs.js';
-import { removeNamesFrom, checkText, storyMarkdown, storySections, slugify, normalizeRecord, applyResumeChanges } from './career-text.js';
+import { removeNamesFrom, checkText as checkTextFor, JOB_STATUSES, storyMarkdown, storySections, slugify, normalizeRecord, applyResumeChanges } from './career-text.js';
 export { slugify };
 
 export class CareerError extends Error {}
@@ -129,7 +129,9 @@ export function addEvidence(b = {}) {
 
 // ---------- privacy checks (pure functions live in career-text.js so they can be tested) ----------
 export const removeNames = (text) => removeNamesFrom(text, listPeople());
-export { checkText };
+export const jobStatus = () => (JOB_STATUSES.includes(getSettings().career?.job_status) ? getSettings().career.job_status : 'employed');
+/** The pre-sharing checks, with the writer's job status from Settings. */
+export const checkText = (text, opts = {}) => checkTextFor(text, { ...opts, jobStatus: jobStatus() });
 
 // ---------- GitHub (portfolio repo) ----------
 export function githubStatus() {
@@ -299,7 +301,7 @@ export async function createDraft({ kind, angle = '', evidenceIds = [], current 
     const evidence = pickEvidence(evidenceIds);
     let record = null;
     if (githubStatus().ready) { try { record = (await readCareerRecord()).record; } catch { /* the kit still works without it */ } }
-    const { system, messages } = linkedinKitPrompt({ evidence, profile, record, current: clip(current, 6000) });
+    const { system, messages } = linkedinKitPrompt({ evidence, profile, record, current: clip(current, 6000), jobStatus: jobStatus() });
     const d = await complete({ system, messages, json: true, maxTokens: 4000, task: 'career' });
     const fix = s => removeNames(clip(s, 3000));
     const parts = {
