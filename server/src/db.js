@@ -467,6 +467,11 @@ const MIGRATIONS = [
   () => {
     const cols = db.prepare(`PRAGMA table_info(entries)`).all().map(c => c.name);
     if (!cols.includes('no_ai')) db.exec(`ALTER TABLE entries ADD COLUMN no_ai INTEGER NOT NULL DEFAULT 0`);
+  },
+  // 26: Who was in this? Your choices after a recording is processed, and names you skipped.
+  () => {
+    const cols = db.prepare(`PRAGMA table_info(entries)`).all().map(c => c.name);
+    if (!cols.includes('people_review')) db.exec(`ALTER TABLE entries ADD COLUMN people_review TEXT`);
   }
 ];
 {
@@ -510,7 +515,7 @@ export const forAi = rows => rows.filter(r => r && !r.no_ai);
 
 export function hydrateEntry(row, { withPeople = true } = {}) {
   if (!row) return null;
-  const e = { ...row, tags: safeJson(row.tags, []), analysis: safeJson(row.analysis, null), consent_confirmed: !!row.consent_confirmed, no_ai: !!row.no_ai };
+  const e = { ...row, tags: safeJson(row.tags, []), analysis: safeJson(row.analysis, null), consent_confirmed: !!row.consent_confirmed, no_ai: !!row.no_ai, people_review: safeJson(row.people_review, null) };
   e.has_audio = !!row.audio_file;
   delete e.audio_file;
   if (withPeople) {
@@ -554,13 +559,13 @@ export function linkMentions(entryId, md) {
 
 export function updateEntry(id, fields) {
   const cols = ['title', 'kind', 'body_md', 'transcript', 'tags', 'audio_file', 'audio_mime', 'audio_seconds',
-    'status', 'error', 'analysis', 'analysis_at', 'consent_confirmed', 'created_at', 'source_text', 'no_ai'];
+    'status', 'error', 'analysis', 'analysis_at', 'consent_confirmed', 'created_at', 'source_text', 'no_ai', 'people_review'];
   const sets = [];
   const vals = [];
   for (const c of cols) {
     if (fields[c] === undefined) continue;
     let v = fields[c];
-    if (c === 'tags' || c === 'analysis') v = v === null ? null : JSON.stringify(v);
+    if (c === 'tags' || c === 'analysis' || c === 'people_review') v = v === null ? null : JSON.stringify(v);
     if (c === 'consent_confirmed' || c === 'no_ai') v = v ? 1 : 0;
     sets.push(`${c} = ?`);
     vals.push(v);

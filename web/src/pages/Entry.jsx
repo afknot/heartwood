@@ -9,6 +9,7 @@ import Sheet from '../components/Sheet.jsx';
 import { PeoplePicker, TagEditor } from '../components/Pickers.jsx';
 import { StatusBadge } from '../components/EntryItem.jsx';
 import { FilesSection, SuggestedPeople, attachFiles } from '../components/EntryFiles.jsx';
+import PeopleReview from '../components/PeopleReview.jsx';
 import { ACCEPT } from './AddFiles.jsx';
 import { KINDS, formatDate, duration } from '../lib/format.js';
 import { useApp } from '../lib/context.js';
@@ -25,6 +26,7 @@ export default function Entry() {
   const [entry, setEntry] = useState(null);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
+  const [reviewing, setReviewing] = useState(false); // Who was in this? is open
   const [sheet, setSheet] = useState(null); // 'people' | 'tags' | 'more'
   const [personMenu, setPersonMenu] = useState(null);
   const [allTags, setAllTags] = useState([]);
@@ -200,13 +202,14 @@ export default function Entry() {
           ? <button className="chip" onClick={() => setSheet('tags')} aria-label="Edit tags"><Icon name="plus" size={14} /></button>
           : <button className="chip" onClick={() => setSheet('tags')}># Tags</button>}
       </div>
-      {mentioned.length > 0 && (
+      <PeopleReview entry={entry} onSaved={applyServer} onShow={setReviewing} />
+      {!reviewing && mentioned.length > 0 && (
         <div className="chips mentioned-chips" aria-label="Also mentioned">
           <span className="small muted">Also mentioned:</span>
           {mentioned.map(p => <button key={p.id} className="chip small-chip" onClick={() => setPersonMenu(p)}>{p.name.split(' ')[0]}</button>)}
         </div>
       )}
-      <SuggestedPeople entry={entry} onLinked={ids => patchNow({ people: ids })} />
+      {!reviewing && <SuggestedPeople entry={entry} onLinked={ids => patchNow({ people: ids })} />}
       <Sheet open={!!personMenu} onClose={() => setPersonMenu(null)} title={personMenu?.name || ''}>
         {personMenu && <div className="stack" style={{ gap: 8 }}>
           <p className="small muted" style={{ marginTop: -8 }}>People in the conversation count as time together on Team and Today. People only mentioned are still linked, so it shows up on their page.</p>
@@ -232,7 +235,7 @@ export default function Entry() {
         <Editor value={body} onChange={onBody} autoFocus={fresh} focusRef={focusBody} onFiles={['processing', 'transcribing', 'analyzing'].includes(entry.status) ? undefined : pasteFiles} placeholder={entry.status === 'processing' ? 'Reading your files… the note appears here.' : entry.has_audio ? 'Add your own notes…' : 'What’s on your mind?'} />
       </div>
 
-      <ContextBar subject={{ kind: 'entry', id, label: title.trim() ? `“${title.trim()}”` : 'this note' }} recipients={people} compact />
+      <ContextBar subject={{ kind: 'entry', id, label: title.trim() ? `“${title.trim()}”` : 'this note' }} recipients={people} compact noAi={!!entry.no_ai} />
 
       {(entry.has_audio || entry.transcript) && (
         <details className="section" open={!!entry.transcript && !body.trim()}>

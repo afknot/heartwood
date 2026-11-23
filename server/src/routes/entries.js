@@ -1,4 +1,5 @@
 import express from 'express';
+import { peopleReview, savePeopleReview } from '../people-review.js';
 import multer from 'multer';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -101,6 +102,19 @@ entries.get('/:id', (req, res) => {
   const e = hydrateEntry(getEntryRow(req.params.id));
   if (!e) return res.status(404).json({ error: 'Not found' });
   res.json(e);
+});
+
+// Who was in this? After a recording or files are read: the people found, for you to confirm.
+entries.get('/:id/people-review', (req, res) => {
+  const r = peopleReview(req.params.id);
+  if (!r) return res.status(404).json({ error: 'Not found' });
+  res.json(r);
+});
+entries.post('/:id/people-review', (req, res) => {
+  const b = req.body || {};
+  const r = savePeopleReview(req.params.id, { with: b.with, mentioned: b.mentioned, skip: b.skip });
+  if (!r) return res.status(404).json({ error: 'Not found' });
+  res.json({ review: r, entry: hydrateEntry(getEntryRow(req.params.id)) });
 });
 
 entries.patch('/:id', (req, res) => {

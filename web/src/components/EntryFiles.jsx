@@ -152,7 +152,8 @@ export function SuggestedPeople({ entry, onLinked }) {
   const me = norm(myName);
   const suggestions = [...new Set(found.map(String))].filter(n => {
     const x = norm(n);
-    if (!x || ['me', 'i', 'team', 'the team'].includes(x) || (me && (x === me || x === me.split(/\s+/)[0])) || dismissed.includes(x)) return false;
+    const skipped = (entry.people_review?.skipped || []).map(norm);
+    if (!x || ['me', 'i', 'team', 'the team'].includes(x) || (me && (x === me || x === me.split(/\s+/)[0])) || dismissed.includes(x) || skipped.includes(x)) return false;
     return !known.includes(x) && !(x.split(/\s+/).length === 1 && knownFirst.includes(x));
   }).slice(0, 8);
   if (!suggestions.length) return null;

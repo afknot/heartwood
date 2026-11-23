@@ -87,7 +87,7 @@ export function AskSheet({ open, onClose, subject, chatId: initial = null, liste
 }
 
 /** Updates and clarifications that belong with this person, note or meeting (not in your journal). */
-export function ContextThread({ subject, refreshKey }) {
+export function ContextThread({ subject, refreshKey, noAi = false }) {
   const [rows, setRows] = useState(null);
   const [text, setText] = useState('');
   const [adding, setAdding] = useState(false);
@@ -123,7 +123,7 @@ export function ContextThread({ subject, refreshKey }) {
           </div>
         </form>
       )}
-      {rows.length === 0 && !adding && <p className="small muted" style={{ margin: '2px 0 0' }}>Updates and clarifications about {subject.label} go here, not in your journal. Ask, prep and drafted messages use them.</p>}
+      {rows.length === 0 && !adding && <p className="small muted" style={{ margin: '2px 0 0' }}>Updates and clarifications about {subject.label} go here, not in your journal.{noAi ? '' : ' Ask, prep and drafted messages use them.'}</p>}
       <ul className="ctx-list">
         {rows.slice(0, 8).map(r => (
           <li key={r.id}>
@@ -139,7 +139,7 @@ export function ContextThread({ subject, refreshKey }) {
 }
 
 /** "Ask about this" and "Write a message" for a person, note or meeting, plus its chats and context. */
-export default function ContextBar({ subject, recipients = [], showThread = true, compact = false, showAsk = true }) {
+export default function ContextBar({ subject, recipients = [], showThread = true, compact = false, showAsk = true, noAi = false }) {
   const [ask, setAsk] = useState(null); // null | { chatId }
   const [write, setWrite] = useState(false);
   const [chats, setChats] = useState([]);
@@ -147,21 +147,23 @@ export default function ContextBar({ subject, recipients = [], showThread = true
   useEffect(() => {
     api.get(`/chats?subject_kind=${subject.kind}&subject_id=${encodeURIComponent(subject.id)}`).then(setChats).catch(() => setChats([]));
   }, [subject.kind, subject.id, ask, bump]);
-  const canWrite = subject.kind !== 'entry' || recipients.length > 0;
+  // A note kept out of AI gets no Ask, no drafted message and no way back into its old chats, since they all send it to AI.
+  const canAsk = showAsk && !noAi;
+  const canWrite = !noAi && (subject.kind !== 'entry' || recipients.length > 0);
   return (
     <section className={`card ctx-bar${compact ? ' compact' : ''}`} aria-label={`Ask about or write to ${subject.label}`}>
-      <div className="ctx-actions">
-        {showAsk && <button type="button" className="ctx-btn" onClick={() => setAsk({ chatId: null })}><Icon name="ask" size={18} /> Ask about this</button>}
+      {(canAsk || canWrite) && <div className="ctx-actions">
+        {canAsk && <button type="button" className="ctx-btn" onClick={() => setAsk({ chatId: null })}><Icon name="ask" size={18} /> Ask about this</button>}
         {canWrite && <button type="button" className="ctx-btn" onClick={() => setWrite(true)}><Icon name="send" size={18} /> Write a message</button>}
-      </div>
-      {chats.length > 0 && (
+      </div>}
+      {!noAi && chats.length > 0 && (
         <ul className="ctx-chats" aria-label="Chats">
           {chats.slice(0, 3).map(c => (
             <li key={c.id}><button type="button" className="linklike" onClick={() => setAsk({ chatId: c.id })}>{c.title}</button> <span className="small muted">· {formatDate(c.updated_at)}</span></li>
           ))}
         </ul>
       )}
-      {showThread && <ContextThread subject={subject} refreshKey={bump} />}
+      {showThread && <ContextThread subject={subject} refreshKey={bump} noAi={noAi} />}
       <AskSheet open={!!ask} onClose={() => setAsk(null)} subject={subject} chatId={ask?.chatId || null} />
       <ComposeSheet open={write} onClose={() => setWrite(false)} subject={subject} recipients={recipients} onSent={() => setBump(b => b + 1)} />
     </section>
