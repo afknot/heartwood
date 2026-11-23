@@ -172,7 +172,7 @@ function TabBar({ dock, people }) {
       {dock && (
         <div className="ask-dock">
           <div className="ask-dock-btn" role="group" aria-label="Ask">
-            <button type="button" className="grow" style={{ all: 'unset', flex: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, minHeight: 42, overflow: 'hidden' }} onClick={() => setAsk({ listen: false })}>
+            <button type="button" className="ask-dock-main" onClick={() => setAsk({ listen: false })}>
               <Icon name="ask" size={18} /> <span className="grow">{subject ? `Ask about ${subject.label.split(' ')[0]}…` : 'Ask anything…'}</span>
             </button>
             <button type="button" className="ask-dock-mic" onClick={() => setAsk({ listen: true })} aria-label="Ask by voice"><Icon name="mic" size={17} /></button>

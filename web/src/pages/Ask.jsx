@@ -5,6 +5,7 @@ import Icon from '../components/Icon.jsx';
 import ReflectNav from '../components/ReflectNav.jsx';
 import Sheet from '../components/Sheet.jsx';
 import AskComposer from '../components/AskComposer.jsx';
+import AiError from '../components/AiError.jsx';
 import { formatDate, renderAnswer, inAppPath } from '../lib/format.js';
 import { useApp } from '../lib/context.js';
 
@@ -25,6 +26,7 @@ export default function Ask() {
   const { notify } = useApp();
   const [chat, setChat] = useState(null); // { id, title, archived, messages }
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
   const [history, setHistory] = useState(false);
   const end = useRef();
 
@@ -42,14 +44,14 @@ export default function Ask() {
     const shown = question || 'What do you make of this?';
     const userMsg = { role: 'user', content: shown, ...(refs.length ? { refs } : {}), ...(attachments.length ? { attachments } : {}) };
     const optimistic = { ...(chat || { id: null, title: shown, archived: false }), messages: [...msgs, userMsg] };
-    setChat(optimistic); setBusy(true);
+    setChat(optimistic); setBusy(true); setErr('');
     try {
       const r = await api.post('/ask', { chat_id: chat?.id || null, question, refs, attachments: attachments.map(a => a.id) });
       const next = { id: r.chat_id, title: r.title, archived: false, messages: [...optimistic.messages, { role: 'assistant', content: r.answer, sources: r.sources }] };
       setChat(next);
       if (!chatId) nav(`/ask/${r.chat_id}`, { replace: true });
     } catch (e) {
-      notify(e.message);
+      setErr(e.message);
       setChat(chat);
     } finally { setBusy(false); }
   }
@@ -103,6 +105,7 @@ export default function Ask() {
         <div ref={end} />
       </div>
 
+      <AiError message={err} onDismiss={() => setErr('')} className="mb" />
       <AskComposer busy={busy} placeholder={msgs.length ? 'Follow up…' : 'Ask, or type @ to mention…'} onSend={send} />
 
       <ChatHistory open={history} onClose={() => setHistory(false)} currentId={chat?.id} onOpen={id => { setHistory(false); nav(`/ask/${id}`); }}

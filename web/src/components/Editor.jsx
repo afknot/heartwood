@@ -18,7 +18,7 @@ import { PersonForm } from '../pages/People.jsx';
  * Markdown shortcuts work as you type: "# ", "- ", "1. ", "[ ] ", "> ", **bold**, _italic_.
  * Type @ to mention someone; mentioned people are linked to the note.
  */
-export default function Editor({ value, onChange, placeholder = 'Start writingâ€¦', className = '', onFiles }) {
+export default function Editor({ value, onChange, placeholder = 'Start writingâ€¦', className = '', onFiles, autoFocus = false, focusRef }) {
   const filesRef = useRef(onFiles);
   filesRef.current = onFiles;
   const [focused, setFocused] = useState(false);
@@ -45,6 +45,7 @@ export default function Editor({ value, onChange, placeholder = 'Start writingâ€
       Markdown.configure({ html: false, tightLists: true, linkify: true, breaks: false, transformPastedText: true, transformCopiedText: true })
     ],
     content: value || '',
+    autofocus: autoFocus ? 'end' : false,
     onUpdate: ({ editor }) => onChange?.(editor.storage.markdown.getMarkdown()),
     onFocus: () => setFocused(true),
     onBlur: () => setTimeout(() => setFocused(false), 150),
@@ -68,6 +69,9 @@ export default function Editor({ value, onChange, placeholder = 'Start writingâ€
       }
     }
   });
+
+  // Lets the page move the cursor into the note (Enter in the title does this).
+  useEffect(() => { if (focusRef) focusRef.current = () => editor?.commands.focus('start'); }, [editor, focusRef]);
 
   // Replace content only when it changes from outside (e.g. transcript inserted).
   useEffect(() => {

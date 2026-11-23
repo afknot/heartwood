@@ -15,7 +15,7 @@ function TzSelect({ value, onChange }) {
     <select className="select" value={value || ''} onChange={e => onChange(e.target.value)}>
       <option value="">Not set</option>
       <optgroup label="Common">{[...extra, ...common].map(z => <option key={z} value={z}>{tzLabel(z)}{z === MY_TZ ? ' · yours' : ''}</option>)}</optgroup>
-      {rest.length > 0 && <optgroup label="All time zones">{rest.map(z => <option key={z} value={z}>{z.replace(/_/g, ' ')}</option>)}</optgroup>}
+      {rest.length > 0 && <optgroup label="All time zones">{rest.map(z => [z, tzLabel(z)]).sort((a, b) => a[1].localeCompare(b[1])).map(([z, label]) => <option key={z} value={z}>{label}</option>)}</optgroup>}
     </select>
   );
 }
@@ -89,7 +89,7 @@ export default function People() {
   const READ = { good: 'Good', okay: 'Okay', carrying: 'Carrying something' };
   const dayName = iso => new Date(iso).toLocaleDateString([], { weekday: 'long' });
   const weekLine = w => w && (w.covered ? `Seen this week${w.read ? ` · seemed ${READ[w.read].toLowerCase()}` : ''}`
-    : w.next_this_week ? `Next: ${dayName(w.next_at)}` : w.next_at ? 'Next week' : w.on_rhythm ? 'On rhythm' : 'Not seen in a while');
+    : w.next_this_week ? `Next: ${dayName(w.next_at)}` : w.next_at ? 'Next week' : w.on_rhythm ? 'On rhythm' : w.last_seen ? 'Not seen in a while' : 'No conversations yet');
   const nav = useNavigate();
 
   const PLURAL = { direct_report: 'Direct reports', peer: 'Peers', manager: 'Managers', mentor: 'Mentors', mentee: 'Mentees', stakeholder: 'Stakeholders', other: 'Others' };

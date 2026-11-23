@@ -17,6 +17,7 @@ import { findRange, showRange, clearHighlight } from '../lib/highlight.js';
 export default function Entry() {
   const { id } = useParams();
   const [params] = useSearchParams();
+  const focusBody = useRef(null);
   const fresh = params.get('fresh') === '1';
   const nav = useNavigate();
   const { notify, refreshPeople } = useApp();
@@ -134,7 +135,7 @@ export default function Entry() {
     await save();
     setAnalyzing(true);
     try { setEntry(await api.post(`/entries/${id}/analyze`)); }
-    catch (e) { notify(e.message); setAnalyzing(false); }
+    catch (e) { setEntry(prev => ({ ...prev, error: `Analysis failed: ${e.message}` })); setAnalyzing(false); }
   }
 
   function addTodos(items) {
@@ -185,7 +186,8 @@ export default function Entry() {
 
       <h1 className="sr-only">{title || 'Untitled note'}</h1>
       <input className="title-input" aria-label="Title" placeholder={entry.status === 'transcribing' ? 'Transcribing… title comes next' : entry.status === 'processing' ? 'Reading files… title comes next' : 'Title'}
-        value={title} onChange={e => onTitle(e.target.value)} autoFocus={fresh} />
+        value={title} onChange={e => onTitle(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); focusBody.current?.(); } }} />
 
       <div className="meta-bar">
         <span className="small muted">{formatDate(entry.created_at, { time: true })} · {KINDS[entry.kind]}</span>
@@ -214,7 +216,7 @@ export default function Entry() {
         </div>}
       </Sheet>
 
-      {entry.error && (
+      {entry.error && !/^Analysis failed/.test(entry.error) && (
         <div className="banner error mt">
           <span className="grow">{entry.error}</span>
           {entry.source === 'files' && entry.status === 'error' && <button className="btn small" onClick={async () => applyServer(await api.post(`/entries/${id}/files/retry`))}><Icon name="retry" size={16} /> Retry</button>}
@@ -227,7 +229,7 @@ export default function Entry() {
       {source && <SourceBanner source={source} found={sourceFound} onShow={locate} onClose={() => { clearHighlight(); setSource(null); }} />}
 
       <div className="mt" data-source="note">
-        <Editor value={body} onChange={onBody} onFiles={['processing', 'transcribing', 'analyzing'].includes(entry.status) ? undefined : pasteFiles} placeholder={entry.status === 'processing' ? 'Reading your files… the note appears here.' : entry.has_audio ? 'Add your own notes…' : 'What’s on your mind?'} />
+        <Editor value={body} onChange={onBody} autoFocus={fresh} focusRef={focusBody} onFiles={['processing', 'transcribing', 'analyzing'].includes(entry.status) ? undefined : pasteFiles} placeholder={entry.status === 'processing' ? 'Reading your files… the note appears here.' : entry.has_audio ? 'Add your own notes…' : 'What’s on your mind?'} />
       </div>
 
       <ContextBar subject={{ kind: 'entry', id, label: title.trim() ? `“${title.trim()}”` : 'this note' }} recipients={people} compact />
@@ -268,7 +270,7 @@ export default function Entry() {
         </details>
       )}
 
-      <AnalysisPanel entry={entry} onRun={runAnalysis} onAddTodos={addTodos} busy={analyzing} />
+      <AnalysisPanel entry={entry} onRun={runAnalysis} onAddTodos={addTodos} busy={analyzing} onDismissError={() => patchNow({ clear_error: true })} />
 
       <PeoplePicker open={sheet === 'people'} onClose={() => setSheet(null)} selected={allPeople.map(p => p.id)}
         onChange={ids => patchNow({ people: ids })} />

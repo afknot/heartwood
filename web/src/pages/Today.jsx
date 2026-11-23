@@ -139,7 +139,7 @@ export default function Today() {
       <QuickAddSheet open={addOpen} onClose={() => setAddOpen(false)} onAdded={() => load()} />
 
       <Sheet open={eodChoice} onClose={() => setEodChoice(false)} title="End of day">
-        <p className="muted" style={{ marginTop: 0 }}>Two minutes: what went well, how you showed up, what to carry into tomorrow.</p>
+        <p className="muted" style={{ marginTop: 0 }}>Two minutes: what went well, how you showed up, what you can put down tonight.</p>
         <div className="stack">
           <button className="btn primary block" onClick={() => { setEodChoice(false); reflectOnDay(); }}><Icon name="note" size={18} /> {data.end_of_day?.entry_id ? 'Open your note' : 'Write it'}</button>
           <Link className="btn rec block" to={eodRecord()} onClick={() => setEodChoice(false)}><Icon name="mic" size={18} /> Say it out loud</Link>
@@ -153,7 +153,7 @@ export default function Today() {
             <span className="eod-ic" aria-hidden="true"><Icon name="journal" size={18} /></span>
             <div className="grow">
               <h2 style={{ margin: 0, fontSize: 17 }}>End of day</h2>
-              <p className="small muted" style={{ margin: '2px 0 10px' }}>{data.end_of_day.conversations ? `${data.end_of_day.conversations} conversation${data.end_of_day.conversations === 1 ? '' : 's'} today. ` : ''}Two minutes: what went well, how you showed up, what to carry into tomorrow.</p>
+              <p className="small muted" style={{ margin: '2px 0 10px' }}>{data.end_of_day.conversations ? `${data.end_of_day.conversations} conversation${data.end_of_day.conversations === 1 ? '' : 's'} today. ` : ''}Two minutes: what went well, how you showed up, what you can put down tonight.</p>
               <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
                 <button className="btn small primary" onClick={reflectOnDay}><Icon name="note" size={16} /> Reflect</button>
                 <Link className="btn small" to={eodRecord()}><Icon name="mic" size={16} /> Say it</Link>

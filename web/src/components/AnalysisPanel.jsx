@@ -1,7 +1,8 @@
 import Icon from './Icon.jsx';
+import AiError from './AiError.jsx';
 import { formatDate } from '../lib/format.js';
 
-export default function AnalysisPanel({ entry, onRun, onAddTodos, busy }) {
+export default function AnalysisPanel({ entry, onRun, onAddTodos, busy, onDismissError }) {
   const a = entry.analysis;
   const running = busy || entry.status === 'analyzing';
   const canRun = entry.status !== 'transcribing' && (entry.body_md?.trim() || entry.transcript?.trim());
@@ -16,6 +17,7 @@ export default function AnalysisPanel({ entry, onRun, onAddTodos, busy }) {
         </button>
       </div>
 
+      {!running && /^Analysis failed/.test(entry.error || '') && <AiError message={entry.error} onDismiss={onDismissError} className="mb" />}
       {!a && !running && (
         <p className="muted small">
           {canRun ? 'Get a summary, follow-ups you may have missed, and coaching ideas for this entry.' : 'Write or record something, then reflect on it.'}

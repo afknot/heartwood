@@ -8,6 +8,7 @@ import { ComposeSheet } from './Compose.jsx';
 import { useDictation, DictationPanel, MicButton } from './VoiceInput.jsx';
 import { formatDate, renderAnswer, inAppPath } from '../lib/format.js';
 import { useApp } from '../lib/context.js';
+import AiError from './AiError.jsx';
 
 
 /** An answer's [E3] / [P2] labels as links to what they cite. */
@@ -19,6 +20,7 @@ export function ChatPanel({ subject, chatId, onChat, ideas = [], listen = false 
   const { notify } = useApp();
   const [chat, setChat] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
   const end = useRef();
   useEffect(() => {
     if (!chatId) { setChat(null); return; }
@@ -30,13 +32,13 @@ export function ChatPanel({ subject, chatId, onChat, ideas = [], listen = false 
   async function send({ question, refs = [], attachments = [] }) {
     const all = [...base, ...refs.filter(r => !base.some(b => b.type === r.type && b.id === r.id))];
     setChat(c => ({ ...(c || {}), messages: [...(c?.messages || []), { role: 'user', content: question || 'About the attached files', refs, attachments }] }));
-    setBusy(true);
+    setBusy(true); setErr('');
     try {
       const r = await api.post('/ask', { chat_id: chat?.id || null, question, refs: all, attachments: attachments.map(a => a.id), subject: subject ? { kind: subject.kind, id: subject.id } : null });
       const next = await api.get(`/chats/${r.chat_id}`);
       setChat(next); onChat?.(next);
     } catch (e) {
-      notify(e.message);
+      setErr(e.message);
       setChat(c => ({ ...c, messages: (c?.messages || []).slice(0, -1) }));
     } finally { setBusy(false); }
   }
@@ -53,6 +55,7 @@ export function ChatPanel({ subject, chatId, onChat, ideas = [], listen = false 
           ? <div key={i} className="msg-user-wrap"><div className="msg-user">{m.content}</div></div>
           : <div key={i} className="msg-ai md" dangerouslySetInnerHTML={{ __html: answerHtml(m) }} />)}
         {busy && <div className="row muted small"><span className="spinner" /> Looking through your journal…</div>}
+        <AiError message={err} onDismiss={() => setErr('')} />
         <div ref={end} />
       </div>
       <div className="chat-panel-composer">

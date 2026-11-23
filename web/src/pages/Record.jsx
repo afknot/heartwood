@@ -22,7 +22,7 @@ const uuid = () => crypto.randomUUID?.() || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxx
   const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16);
 });
 // Shown when you record your end-of-day reflection, the same prompts as the written note.
-const DAY_PROMPTS = ['What went well?', 'What took more energy than it should have?', 'How did I show up as a leader today?', 'Who needs something from me tomorrow?', 'One thing to carry into tomorrow'];
+const DAY_PROMPTS = ['What went well?', 'What took more energy than it should have?', 'How did I show up as a leader today?', 'Who needs something from me tomorrow?', 'What can I put down tonight?'];
 const Guide = () => (
   <section className="coach-card" aria-label="Things to talk through">
     <b style={{ fontSize: 14 }}>Things to talk through</b>

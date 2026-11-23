@@ -115,7 +115,7 @@ export function endOfDayDue() {
   const existing = endOfDayToday();
   return { due: !existing && weekday >= 1 && weekday <= 5 && hm >= (n.evening_time || '17:30') && hm < '23:59', entry_id: existing?.id || null, conversations: dayConversations().length };
 }
-const PROMPTS = ['What went well?', 'What took more energy than it should have?', 'How did I show up as a leader today?', 'Who needs something from me tomorrow?', 'One thing to carry into tomorrow'];
+const PROMPTS = ['What went well?', 'What took more energy than it should have?', 'How did I show up as a leader today?', 'Who needs something from me tomorrow?', 'What can I put down tonight?'];
 /** Start (or reopen) today's end-of-day note: today's conversations, then a few short prompts. */
 export function startEndOfDay() {
   const existing = endOfDayToday();
@@ -190,7 +190,7 @@ async function tick() {
       const met = dayConversations().length;
       await sendAll({
         title: 'End of day',
-        body: met ? `${met} conversation${met === 1 ? '' : 's'} today. Two minutes: what went well, what to carry into tomorrow?` : 'Two minutes: what went well, and what do you want to carry into tomorrow?',
+        body: met ? `${met} conversation${met === 1 ? '' : 's'} today. Two minutes: what went well, and what can you put down tonight?` : 'Two minutes: what went well, and what can you put down tonight?',
         url: '/?reflect=day', tag: 'evening',
         actions: [
           { action: 'write', title: 'Write it', url: '/?reflect=write' },

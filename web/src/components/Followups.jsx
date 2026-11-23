@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import Icon from './Icon.jsx';
+import AiError from './AiError.jsx';
 import { formatDate, renderMarkdown } from '../lib/format.js';
 import Sheet from './Sheet.jsx';
 import { useApp } from '../lib/context.js';
@@ -220,7 +221,7 @@ export function RespondSheet({ open, onClose, followup = null, personId = null, 
               onChange={e => { att.attach(e.target.files); e.target.value = ''; }} />
           </div>
           <p className="small muted" style={{ marginTop: 0 }}>Paste or drop a screenshot, email or document and Heartwood reads it too.</p>
-          {err && <div className="banner error" role="alert">{err}</div>}
+          <AiError message={err} />
           <button className="btn primary block" disabled={busy || att.uploading || (!text.trim() && !att.ready.length)}>{busy ? <><span className="spinner" /> Reading your follow-ups…</> : 'Find what this settles'}</button>
         </form>
       ) : <>
@@ -244,7 +245,7 @@ export function RespondSheet({ open, onClose, followup = null, personId = null, 
           <span className="grow">Keep my update as context<small>Saved with the people it’s about, not in your journal. Ask, prep and drafted messages use it. (With files attached, it becomes a journal note.)</small></span>
           <span className="switch"><input type="checkbox" checked={saveNote} onChange={e => setSaveNote(e.target.checked)} /><i /></span>
         </label>
-        {err && <div className="banner error" role="alert">{err}</div>}
+        <AiError message={err} />
         <button className="btn primary block" disabled={busy || (!count && !saveNote)} onClick={() => apply()}>
           {busy ? 'Saving…' : count ? `Update ${count} follow-up${count === 1 ? '' : 's'}` : 'Save note'}
         </button>
@@ -352,7 +353,7 @@ export function PrepSheet({ open, onClose, person, event, existingId, onCreated,
         <div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(prep.content_md) }} />
       </>}
       {!prep && !busy && <p className="muted">Heartwood reads your recent notes and open follow-ups with {person?.name?.split(' ')[0]} and gets you ready: what’s changed, what’s open, what to raise and what to ask.</p>}
-      {err && <div className="banner error" role="alert">{err}</div>}
+      <AiError message={err} />
       <button className="btn primary block mt" onClick={generate} disabled={busy}>
         {busy ? <><span className="spinner" /> Getting you ready…</> : prep ? 'Refresh prep' : 'Prep me'}
       </button>

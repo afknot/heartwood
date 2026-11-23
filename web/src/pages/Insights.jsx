@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import Icon from '../components/Icon.jsx';
 import ReflectNav from '../components/ReflectNav.jsx';
+import AiError from '../components/AiError.jsx';
 import { useApp } from '../lib/context.js';
 import { formatDate, isoDay } from '../lib/format.js';
 
@@ -24,6 +25,7 @@ export default function Insights() {
   const nav = useNavigate();
   const { notify } = useApp();
   const [reports, setReports] = useState([]);
+  const [err, setErr] = useState('');
   const [preset, setPreset] = useState('7');
   const [from, setFrom] = useState(isoDay(Date.now() - 6 * 864e5));
   const [to, setTo] = useState(isoDay(Date.now()));
@@ -38,7 +40,7 @@ export default function Insights() {
   }
 
   async function generate() {
-    setBusy(true);
+    setBusy(true); setErr('');
     try {
       const r = await api.post('/reports', {
         from, to, focus,
@@ -46,7 +48,7 @@ export default function Insights() {
         to_iso: new Date(`${to}T23:59:59.999`).toISOString()
       });
       nav(`/insights/${r.id}`);
-    } catch (e) { notify(e.message); setBusy(false); }
+    } catch (e) { setErr(e.message); setBusy(false); }
   }
 
   return (
@@ -72,6 +74,7 @@ export default function Insights() {
         <button className="btn primary block" onClick={generate} disabled={busy}>
           {busy ? <><span className="spinner" /> Reading your journal… this can take a minute</> : <><Icon name="sparkle" size={18} /> Generate debrief</>}
         </button>
+        <AiError message={err} onDismiss={() => setErr('')} className="mt" />
       </section>
 
       {reports.length > 0 && <>
