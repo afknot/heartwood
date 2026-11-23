@@ -1,7 +1,7 @@
 // Write a message to someone, in your own words: draft from scratch, improve your draft, or reply to
 // theirs. Uses what your journal knows about the person, note or meeting, and samples of how you
 // write. Heartwood never sends anything: you copy it or open it in your mail app.
-import { db, getSettings, listPeople, hydrateEntry } from './db.js';
+import { db, getSettings, listPeople, hydrateEntry, forAi } from './db.js';
 import { complete } from './llm.js';
 import { profileBlock, entryDigest } from './prompts.js';
 import { listFollowups } from './followups.js';
@@ -30,6 +30,7 @@ function subjectContext({ kind, id }) {
   } else if (kind === 'entry') {
     const row = db.prepare('SELECT * FROM entries WHERE id = ?').get(id);
     if (!row) throw Object.assign(new Error('Not found'), { status: 404 });
+    if (row.no_ai) throw Object.assign(new Error('This note is kept out of AI. Turn that off on the note to draft a message from it.'), { status: 400 });
     const e = hydrateEntry(row);
     recipients = (e.people || []).map(x => people.find(p => p.id === x.id)).filter(Boolean);
     about = `The message is about this note:\n${entryDigest(e, 6000)}`;
@@ -44,7 +45,7 @@ function subjectContext({ kind, id }) {
 
   const ids = recipients.map(p => p.id);
   const rows = ids.length ? db.prepare(`SELECT DISTINCT e.* FROM entries e JOIN entry_people ep ON ep.entry_id = e.id WHERE ep.person_id IN (${ids.map(() => '?').join(',')}) ORDER BY e.created_at DESC LIMIT 5`).all(...ids) : [];
-  const recent = rows.map(r => hydrateEntry(r)).reverse();
+  const recent = forAi(rows).map(r => hydrateEntry(r)).reverse();
   const open = listFollowups({ status: 'open', limit: 500 }).filter(f => f.person_id && ids.includes(f.person_id)).slice(0, 12);
   const who = recipients.map(p => `${p.name}${p.pronouns ? ` (${p.pronouns})` : ''}${p.role ? `, ${p.role}` : ''}${p.relationship === 'direct_report' ? ', reports to the writer' : p.relationship === 'manager' ? ', the writer’s manager' : p.relationship === 'peer' ? ', a peer' : p.relationship === 'mentor' ? ', the writer’s mentor' : p.relationship === 'mentee' ? ', someone the writer mentors' : ''}${p.notes ? `. Writer's notes on them: ${p.notes.slice(0, 600)}` : ''}`).join('\n');
   const block = [

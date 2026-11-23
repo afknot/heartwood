@@ -11,13 +11,15 @@ import { formatDate, isoDay } from '../lib/format.js';
 const RANGES = [
   { k: '30', label: 'Past month', days: 30 },
   { k: '90', label: 'Past quarter', days: 90 },
+  { k: '182', label: 'Past 6 months', days: 182 },
   { k: '365', label: 'Past year', days: 365 },
   { k: 'custom', label: 'Custom' }
 ];
 const KIND = { initiative: 'Initiative', outcome: 'Outcome', leadership: 'Leadership', decision: 'Decision', feedback: 'Feedback', learning: 'Learning', result: 'Outcome', built: 'Initiative' };
 const DRAFTS = [
   { k: 'story', label: 'Story', hint: 'A leadership story for your portfolio, in the sections and format you set in Settings. Copy it, download it as Markdown, or export it as a pull request.' },
-  { k: 'resume', label: 'Resume', hint: 'Suggested additions and edits to your career record. You pick which to keep, then export them as a pull request.' },
+  { k: 'review', label: 'Review', hint: 'Your self-review for a performance cycle: wins, how you led, how you grew and what’s next, or the headings you set in Settings (your company’s competencies, say). Built from your record for that period. Copy it or download it.' },
+  { k: 'resume', label: 'Resume', hint: 'Suggested lines to add to your resume, or stronger versions of the ones there. Paste or upload your resume and copy the lines you keep. With a portfolio repository connected, they can go in as a pull request instead.' },
   { k: 'linkedin', label: 'LinkedIn', hint: 'A headline, About section, experience bullets and post ideas to paste into LinkedIn yourself. No job-seeking language.' },
   { k: 'recognition', label: 'Kudos', hint: 'Recognition for someone you work with: a line for your next 1:1, a message to them, a shout-out for the team, and a LinkedIn post and recommendation. Their name stays in; ask before anything public. Also on each person’s page.' }
 ];
@@ -86,6 +88,25 @@ export default function Career() {
     } catch (e) { notify(e.message); }
   }
 
+  // Your record as Markdown, grouped by theme, for a review doc, a promotion case or your own files.
+  const recordMd = () => ['# Career record', '', ...byTheme.flatMap(([theme, list]) => [`## ${theme}`, '', ...list.map(i =>
+    `- ${i.text}${i.metric ? ` (${i.metric})` : ''}${i.date ? ` _${i.date}_` : ''}${i.detail ? `\n  ${i.detail}` : ''}`), ''])].join('\n');
+  async function copyRecord() {
+    try { await navigator.clipboard.writeText(recordMd()); notify('Copied your record'); }
+    catch { notify('Couldn’t copy. Use Download instead.'); }
+  }
+  function downloadRecord() {
+    const url = URL.createObjectURL(new Blob([recordMd()], { type: 'text/markdown' }));
+    Object.assign(document.createElement('a'), { href: url, download: `career-record-${isoDay(Date.now())}.md` }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function markPublic(on) {
+    const ids = kept.filter(i => selected.has(i.id) && i.public_ok !== on).map(i => i.id);
+    for (const id of ids) await patch(id, { public_ok: on });
+    notify(ids.length ? `${ids.length} item${ids.length > 1 ? 's' : ''} ${on ? 'marked OK to share publicly' : 'marked not public'}` : 'Already set');
+  }
+
   const toggle = id => setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   return (
@@ -94,7 +115,7 @@ export default function Career() {
       <div className="topbar">
         <h1>Career record</h1>
       </div>
-      <p className="muted" style={{ marginTop: 0 }}>A private record of your own work, pulled from your journal and confirmed by you. Use it to draft portfolio stories, resume updates and LinkedIn posts. Nothing leaves Heartwood unless you export or copy it.</p>
+      <p className="muted" style={{ marginTop: 0 }}>A private record of your own work, pulled from your journal and confirmed by you. Use it to draft portfolio stories, self-reviews, resume updates and LinkedIn posts. Nothing leaves Heartwood unless you export or copy it.</p>
 
       <div className="seg mb" role="group" aria-label="Show">
         <button aria-pressed={tab === 'evidence'} className={tab === 'evidence' ? 'on' : ''} onClick={() => setTab('evidence')}>Evidence{suggested.length ? ` (${suggested.length} new)` : ''}</button>
@@ -133,9 +154,23 @@ export default function Career() {
           {suggested.map(i => <EvidenceItem key={i.id} item={i} themes={info?.themes || []} onPatch={patch} suggested />)}
         </>}
 
-        <h2 className="section-title">Your record{kept.length ? ` (${kept.length})` : ''}</h2>
+        <div className="row section-title-row" style={{ flexWrap: 'wrap', gap: 8 }}>
+          <h2 className="section-title grow">Your record{kept.length ? ` (${kept.length})` : ''}</h2>
+          {kept.length > 0 && <>
+            <button className="btn small ghost" onClick={copyRecord}><Icon name="clip" size={16} /> Copy</button>
+            <button className="btn small ghost" onClick={downloadRecord}><Icon name="note" size={16} /> Download .md</button>
+          </>}
+        </div>
         {!kept.length && <p className="muted small">Nothing kept yet. Find evidence above or add your own.</p>}
         {kept.length > 0 && <p className="small muted" style={{ marginTop: -4 }}>Select items to build a draft from just those. With nothing selected, drafts use everything you’ve kept.</p>}
+        {selected.size > 0 && (
+          <div className="banner info select-bar" role="region" aria-label="Selected items">
+            <span className="grow small">{selected.size} selected</span>
+            <button className="btn small" onClick={() => markPublic(true)}>Mark OK to share publicly</button>
+            <button className="btn small ghost" onClick={() => markPublic(false)}>Not public</button>
+            <button className="btn small ghost" onClick={() => setSelected(new Set())}>Clear</button>
+          </div>
+        )}
         {byTheme.map(([theme, list]) => (
           <div key={theme}>
             <div className="day-label">{theme}</div>
@@ -238,6 +273,12 @@ function Drafts({ info, drafts, people, selected, initial = {} }) {
   const [win, setWin] = useState(initial.win || '');
   const [wins, setWins] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [resumeText, setResumeText] = useState('');
+  const [period, setPeriod] = useState('182');
+  const [pFrom, setPFrom] = useState(isoDay(Date.now() - 181 * 864e5));
+  const [pTo, setPTo] = useState(isoDay(Date.now()));
+  const choosePeriod = r => { setPeriod(r.k); if (r.days) { setPFrom(isoDay(Date.now() - (r.days - 1) * 864e5)); setPTo(isoDay(Date.now())); } };
+  const [reading, setReading] = useState(false);
   const gh = info?.github;
   const team = people.filter(p => p.relationship === 'direct_report').concat(people.filter(p => p.relationship !== 'direct_report'));
 
@@ -250,11 +291,26 @@ function Drafts({ info, drafts, people, selected, initial = {} }) {
   async function create() {
     setBusy(true);
     try {
-      const d = await api.post('/career/drafts', { kind, angle, current, evidence_ids: selected, person_id: personId, win });
+      const d = await api.post('/career/drafts', { kind, angle, current, evidence_ids: selected, person_id: personId, win, resume_text: kind === 'resume' && !gh?.ready ? resumeText : '', from: pFrom, to: pTo });
       nav(`/career/drafts/${d.id}`);
     } catch (e) { notify(e.message); setBusy(false); }
   }
-  const needsGitHub = kind === 'resume' && !gh?.ready;
+  const pasting = kind === 'resume' && gh && !gh.ready;
+  const needsResume = pasting && resumeText.trim().length < 80 && !info?.has_resume;
+  async function readFile(file) {
+    if (!file) return;
+    setReading(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch('/api/career/resume-file', { method: 'POST', body: form, credentials: 'same-origin' });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error || 'Couldn’t read that file.');
+      setResumeText(j.text);
+      notify('Read your resume. Check it below, then write the draft.');
+    } catch (e) { notify(e.message); }
+    finally { setReading(false); }
+  }
   const def = DRAFTS.find(d => d.k === kind);
   const hint = kind === 'linkedin' && info?.job_status === 'open'
     ? 'A headline, About section, experience bullets and post ideas to paste into LinkedIn yourself. You said you’re looking openly, so they can say so.'
@@ -272,10 +328,35 @@ function Drafts({ info, drafts, people, selected, initial = {} }) {
       <div className="analysis-head"><Icon name="note" /><h2>New draft</h2></div>
       <div className="seg mb">{DRAFTS.map(d => <button key={d.k} aria-pressed={kind === d.k} className={kind === d.k ? 'on' : ''} onClick={() => setKind(d.k)}>{d.label}</button>)}</div>
       <p className="small muted" style={{ marginTop: 0 }}>{hint}</p>
-      {kind !== 'recognition' && <p className="small" style={{ marginTop: 0 }}>{selected.length ? `Uses the ${selected.length} item${selected.length > 1 ? 's' : ''} you selected.` : 'Uses everything in your record.'}</p>}
+      {kind !== 'recognition' && <p className="small" style={{ marginTop: 0 }}>{selected.length ? `Uses the ${selected.length} item${selected.length > 1 ? 's' : ''} you selected.` : kind === 'review' ? 'Uses everything in your record from the period you pick.' : 'Uses everything in your record.'}</p>}
+      {kind === 'review' && <>
+        <div className="field"><span>Period</span>
+          <div className="seg">{RANGES.filter(r => r.k !== '30').map(r => <button key={r.k} aria-pressed={period === r.k} className={period === r.k ? 'on' : ''} onClick={() => choosePeriod(r)}>{r.label}</button>)}</div>
+        </div>
+        {period === 'custom' && (
+          <div className="row">
+            <label className="field" style={{ flex: 1 }}><span>From</span><input className="input" type="date" value={pFrom} onChange={e => setPFrom(e.target.value)} /></label>
+            <label className="field" style={{ flex: 1 }}><span>To</span><input className="input" type="date" value={pTo} onChange={e => setPTo(e.target.value)} /></label>
+          </div>
+        )}
+        <div className="field"><span>What to emphasize <small>(optional)</small></span><VoiceTextarea value={angle} onChange={setAngle} rows={2} label="What to emphasize" placeholder="For example: going for promotion to senior manager, so show scope" /></div>
+      </>}
       {kind === 'story' && (
         <div className="field"><span>Angle <small>(optional)</small></span><VoiceTextarea value={angle} onChange={setAngle} rows={2} label="Angle" placeholder="For example: how we made research faster" /></div>
       )}
+      {pasting && <>
+        <div className="field"><span>Your current resume</span>
+          <textarea className="textarea" rows={8} value={resumeText} onChange={e => setResumeText(e.target.value)} aria-label="Your current resume"
+            placeholder={info?.has_resume ? 'Leave empty to use the resume you pasted last time, or paste a newer one.' : 'Paste your resume here, or upload it below.'} />
+        </div>
+        <div className="row mb" style={{ flexWrap: 'wrap', gap: 8 }}>
+          <label className="btn small">
+            {reading ? <><span className="spinner" /> Reading…</> : <><Icon name="clip" size={16} /> Upload Word, PDF or JSON Resume</>}
+            <input type="file" accept=".docx,.pdf,.txt,.md,.json" hidden onChange={e => { readFile(e.target.files?.[0]); e.target.value = ''; }} />
+          </label>
+          <span className="small muted grow">It stays in Heartwood, with this draft. Only the AI provider you chose reads it.</span>
+        </div>
+      </>}
       {kind === 'linkedin' && (
         <label className="field"><span>Your current LinkedIn headline and About <small>(optional, for comparison)</small></span><textarea className="textarea" value={current} onChange={e => setCurrent(e.target.value)} /></label>
       )}
@@ -292,10 +373,10 @@ function Drafts({ info, drafts, people, selected, initial = {} }) {
         </>}
         <div className="field"><span>What you want to recognize</span><VoiceTextarea value={win} onChange={setWin} rows={3} label="What you want to recognize" placeholder="What they did and why it mattered" /></div>
       </>}
-      <button className="btn primary block" onClick={create} disabled={busy || needsGitHub || (kind === 'recognition' && (!personId || !win.trim()))}>
+      <button className="btn primary block" onClick={create} disabled={busy || reading || needsResume || (kind === 'recognition' && (!personId || !win.trim()))}>
         {busy ? <><span className="spinner" /> Writing…</> : <><Icon name="sparkle" size={18} /> Write draft</>}
       </button>
-      {needsGitHub && <p className="small muted">Resume updates read your career record from your portfolio repo, so set that up first.</p>}
+      {needsResume && <p className="small muted">Add your resume above first, so the suggestions fit what’s already there.</p>}
     </section>
 
     {drafts.some(d => !deletingDrafts.has(d.id)) && <>

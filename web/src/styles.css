@@ -821,3 +821,28 @@ html.kb-open .app.has-dock { --tabbar-h: 0px; }
 /* AI errors: message on its own line on narrow screens, actions under it */
 .ai-error { flex-wrap: wrap; row-gap: 8px; }
 .ai-error > .grow { flex: 1 1 14rem; }
+
+/* Career: reading a story or review, the selection bar */
+.story-read { font-size: 17px; max-width: 68ch; }
+.story-read > * + * { margin-top: .7em; }
+.story-read h1 { margin-top: 0; }
+.story-read .todo-line { background: var(--warn-soft); border-radius: 6px; padding: 4px 8px; }
+.select-bar { margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+.section-title-row { align-items: center; }
+.section-title-row .section-title { margin-bottom: 8px; }
+
+/* Finish setting up (Today) and status on Settings rows */
+.setup-list { list-style: none; margin: 10px 0 4px; padding: 0; }
+.setup-list li { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--line); }
+.setup-list li:first-child { border-top: 0; }
+.setup-list a { color: inherit; text-decoration: none; }
+.setup-list a b { display: block; font-weight: 600; color: var(--accent); }
+.setup-list a small { display: block; color: var(--ink-3); font-size: 13px; margin-top: 1px; }
+.setup-list li.done { color: var(--ink-3); }
+.setup-mark { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line); flex: none; display: grid; place-items: center; margin-top: 1px; }
+.setup-list li.done .setup-mark { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.row-status { font-size: 12px; padding: 2px 8px; border-radius: 999px; flex: none; white-space: nowrap; }
+.row-status.todo { background: var(--warn-soft); color: var(--warn); }
+.row-status.ok { color: var(--ink-3); }
+.where-goes { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; }
+.kept-out b { font-weight: 600; }

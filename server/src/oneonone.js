@@ -7,7 +7,7 @@
 // (asking for feedback first), Michael Bungay Stanier (coaching questions) and interest-based
 // mediation, all in Heartwood's own words.
 import crypto from 'node:crypto';
-import { db, newId, now, hydrateEntry, getSettings } from './db.js';
+import { db, newId, now, hydrateEntry, getSettings, forAi } from './db.js';
 import { listFollowups } from './followups.js';
 import { complete } from './llm.js';
 import { COACH_STANCE, profileBlock, entryDigest } from './prompts.js';
@@ -156,9 +156,9 @@ Return JSON only: {"items":[{"section":"...","text":"...","why":"..."}]}`;
 async function suggestions(template, person, profile, items) {
   const provider = getSettings().ai_provider;
   if (!config.keys[provider]) return { items: [], note: 'Add an AI key in Settings to get suggestions from your notes.' };
-  const rows = db.prepare(`SELECT e.* FROM entries e JOIN entry_people ep ON ep.entry_id = e.id WHERE ep.person_id = ? ORDER BY e.created_at DESC LIMIT 6`).all(person.id);
+  const rows = db.prepare(`SELECT e.* FROM entries e JOIN entry_people ep ON ep.entry_id = e.id WHERE ep.person_id = ? ORDER BY e.created_at DESC LIMIT 6`).all(person.id).filter(r => !r.no_ai);
   if (!rows.length) return { items: [], note: '' };
-  const entries = rows.map(r => hydrateEntry(r)).reverse();
+  const entries = forAi(rows).map(r => hydrateEntry(r)).reverse();
   const user = [
     `Person: ${person.name}${person.pronouns ? ` (${person.pronouns})` : ''}${person.role ? `, ${person.role}` : ''}`,
     `Writer's notes about them: ${person.notes || '(none)'}`,

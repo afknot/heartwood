@@ -1,6 +1,6 @@
 // What's coming up (calendar link + meeting invites + recurring schedules, merged), and prep for one
 // conversation. Shared by the Today screen and the morning notification.
-import { db, newId, now, hydrateEntry, getSettings, listPeople } from './db.js';
+import { db, newId, now, hydrateEntry, getSettings, listPeople, forAi } from './db.js';
 import { upcomingEvents } from './calendar.js';
 import { occurrences, findOccurrence, parseKey } from './schedules.js';
 import { listFollowups } from './followups.js';
@@ -64,7 +64,7 @@ export async function makePrep({ personId, eventKey = null, reuse = false }) {
   const ev = !eventKey ? null : parseKey(eventKey) ? findOccurrence(eventKey, listPeople())
     : db.prepare('SELECT * FROM calendar_events WHERE key = ?').get(eventKey) || db.prepare('SELECT * FROM invite_events WHERE key = ?').get(eventKey);
   const rows = db.prepare(`SELECT e.* FROM entries e JOIN entry_people ep ON ep.entry_id = e.id WHERE ep.person_id = ? ORDER BY e.created_at DESC LIMIT 10`).all(person.id);
-  const entries = rows.map(r => hydrateEntry(r)).reverse();
+  const entries = forAi(rows).map(r => hydrateEntry(r)).reverse();
   const followups = listFollowups({ status: 'open', personId: person.id, limit: 30 });
   const s = getSettings();
   const k = recentKudos(person);

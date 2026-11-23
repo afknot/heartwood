@@ -89,9 +89,9 @@ entries.post('/recording', upload.single('audio'), (req, res) => {
   }
   const id = meta.client_id && /^[0-9a-f-]{36}$/.test(meta.client_id) ? meta.client_id : newId();
   const created = meta.recorded_at && !isNaN(Date.parse(meta.recorded_at)) ? new Date(meta.recorded_at).toISOString() : now();
-  db.prepare(`INSERT INTO entries(id, title, kind, body_md, tags, audio_file, audio_mime, audio_seconds, status, consent_confirmed, created_at, updated_at)
-    VALUES (?, ?, ?, '', '[]', ?, ?, ?, 'transcribing', ?, ?, ?)`)
-    .run(id, String(meta.title || ''), kind, req.file.filename, req.file.mimetype, Number(meta.seconds) || null, meta.consent_confirmed ? 1 : 0, created, now());
+  db.prepare(`INSERT INTO entries(id, title, kind, body_md, tags, audio_file, audio_mime, audio_seconds, status, consent_confirmed, no_ai, created_at, updated_at)
+    VALUES (?, ?, ?, '', '[]', ?, ?, ?, 'transcribing', ?, ?, ?, ?)`)
+    .run(id, String(meta.title || ''), kind, req.file.filename, req.file.mimetype, Number(meta.seconds) || null, meta.consent_confirmed ? 1 : 0, meta.no_ai ? 1 : 0, created, now());
   if (Array.isArray(meta.people)) setEntryPeople(id, meta.people);
   enqueue(`rec:${id}`, () => processRecording(id));
   res.status(201).json(hydrateEntry(getEntryRow(id)));
@@ -114,7 +114,8 @@ entries.patch('/:id', (req, res) => {
     transcript: typeof b.transcript === 'string' ? b.transcript : undefined,
     tags: cleanTags(b.tags),
     created_at: b.created_at && !isNaN(Date.parse(b.created_at)) ? new Date(b.created_at).toISOString() : undefined,
-    error: b.clear_error ? null : undefined
+    error: b.clear_error ? null : undefined,
+    no_ai: typeof b.no_ai === 'boolean' ? b.no_ai : undefined
   });
   if (Array.isArray(b.people)) setEntryPeople(row.id, b.people, Array.isArray(b.mentioned) ? { mentioned: b.mentioned.map(String) } : {});
   if (typeof b.body_md === 'string') linkMentions(row.id, b.body_md);
@@ -160,6 +161,7 @@ entries.post('/:id/transcribe', (req, res) => {
 entries.post('/:id/analyze', (req, res) => {
   const row = getEntryRow(req.params.id);
   if (!row) return res.status(404).json({ error: 'Not found' });
+  if (row.no_ai) return res.status(400).json({ error: 'This note is kept out of AI. Turn that off on the note to reflect on it.' });
   if (!row.body_md.trim() && !row.transcript.trim()) return res.status(400).json({ error: 'Write or record something first.' });
   if (row.status === 'transcribing' || row.status === 'processing') return res.status(409).json({ error: 'Still reading. Try again when it finishes.' });
   analyzeEntry(row.id).catch(err => console.error('[analyze]', err.message));

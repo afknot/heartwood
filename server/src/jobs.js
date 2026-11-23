@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { audioDir, filesDir } from './config.js';
-import { db, getEntryRow, hydrateEntry, updateEntry, getSettings, listPeople, setEntryPeople, now } from './db.js';
+import { db, getEntryRow, hydrateEntry, updateEntry, getSettings, listPeople, setEntryPeople, now, forAi } from './db.js';
 import { complete } from './llm.js';
 import { transcribeFile, probeSeconds } from './transcribe.js';
 import { entryAnalysisPrompt, importSynthesisPrompt, imageReadPrompt, filesSynthesisPrompt, parseMetaNote } from './prompts.js';
@@ -25,12 +25,13 @@ export function relatedEntries(entry, limit = 6) {
   const rows = db.prepare(`SELECT DISTINCT e.* FROM entries e JOIN entry_people ep ON ep.entry_id = e.id
     WHERE ep.person_id IN (${ids.map(() => '?').join(',')}) AND e.id != ? AND e.created_at < ?
     ORDER BY e.created_at DESC LIMIT ?`).all(...ids, entry.id, entry.created_at, limit);
-  return rows.map(r => hydrateEntry(r)).reverse();
+  return forAi(rows).map(r => hydrateEntry(r)).reverse();
 }
 
 export async function analyzeEntry(id) {
   const row = getEntryRow(id);
   if (!row) return;
+  if (row.no_ai) throw new Error('This note is kept out of AI. Turn that off on the note to reflect on it.');
   const entry = hydrateEntry(row);
   if (!entry.body_md.trim() && !entry.transcript.trim()) throw new Error('Nothing to analyze yet.');
   const settings = getSettings();
@@ -121,7 +122,7 @@ export async function processRecording(id) {
     updateEntry(id, { status: 'error', error: `Transcription failed: ${err.message}` });
     return;
   }
-  if (settings.auto_analyze) {
+  if (settings.auto_analyze && !getEntryRow(id)?.no_ai) {
     try { await analyzeEntry(id); } catch (err) { console.error('[auto-analyze]', err.message); }
   }
 }
@@ -184,7 +185,9 @@ export async function processFiles(id, { context = '', quiet = false } = {}) {
     try {
       const { text, images } = await extractFile(path.join(filesDir, f.stored), f.name);
       let out = text;
-      if (images.length) {
+      if (images.length && row.no_ai) {
+        out = text || '(Not read: this note is kept out of AI, and reading images needs AI.)';
+      } else if (images.length) {
         const pages = [];
         for (let i = 0; i < images.length; i++) {
           const { system, messages } = imageReadPrompt({ fileName: f.name, context, fileNote: f.note, page: i + 1, pages: images.length });
@@ -213,6 +216,11 @@ export async function processFiles(id, { context = '', quiet = false } = {}) {
     return;
   }
   updateEntry(id, { source_text: combined });
+  if (row.no_ai) {
+    // Kept out of AI: the files are read and kept with the note, but nothing writes a note from them.
+    updateEntry(id, { status: 'ready', error: null });
+    return;
+  }
   if (!files.length) {
     updateEntry(id, { status: 'error', error: 'Heartwood couldn’t read any of the files. Check the file list below.' });
     return;
@@ -244,7 +252,7 @@ export async function processFiles(id, { context = '', quiet = false } = {}) {
   }
   const failed = db.prepare(`SELECT COUNT(*) n FROM entry_files WHERE entry_id = ? AND status = 'error'`).get(id).n;
   if (failed) updateEntry(id, { error: `${failed} file${failed > 1 ? 's' : ''} couldn’t be read. See the file list.` });
-  if (settings.auto_analyze) {
+  if (settings.auto_analyze && !row.no_ai) {
     try { await analyzeEntry(id); } catch (err) { console.error('[files-analyze]', err.message); }
   }
 }

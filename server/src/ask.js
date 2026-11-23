@@ -2,7 +2,7 @@
 // (a person, a note, a recurring meeting) and anything you attached (files, photos), and keep
 // labels so the answer can link back to notes [E#], people [P#] and recurring meetings [R#].
 import { contextBlock } from './context.js';
-import { db, hydrateEntry, getSettings, listPeople, ftsQuery, safeJson } from './db.js';
+import { db, hydrateEntry, getSettings, listPeople, ftsQuery, safeJson, forAi } from './db.js';
 import { listFollowups } from './followups.js';
 import { listSchedules } from './schedules.js';
 import { meetingSeries } from './calendar.js';
@@ -75,12 +75,14 @@ export function buildAsk({ question, history = [], refs = [], attachments = [] }
   for (const m of pickedMeetings) for (const p of m.people) personIds.add(p.id);
 
   const picked = new Map();
-  const add = (rows, { pinned = false } = {}) => rows.forEach(r => {
+  const add = (rows, { pinned = false } = {}) => forAi(rows).forEach(r => {
     if (!picked.has(r.id) && (pinned || picked.size < MAX_ENTRIES)) picked.set(r.id, { row: r, pinned });
   });
   // 1. Notes you pointed at, in full.
   const entryRefs = refs.filter(r => r.type === 'entry').map(r => r.id);
-  if (entryRefs.length) add(db.prepare(`SELECT * FROM entries WHERE id IN (${entryRefs.map(() => '?').join(',')})`).all(...entryRefs), { pinned: true });
+  const pointed = entryRefs.length ? db.prepare(`SELECT * FROM entries WHERE id IN (${entryRefs.map(() => '?').join(',')})`).all(...entryRefs) : [];
+  const keptOut = pointed.filter(r => r.no_ai).length;
+  add(pointed, { pinned: true });
   // 2. Recent notes with the people involved (more for people you picked).
   for (const id of personIds) add(entriesFor([id], pick('person', id) ? 15 : 8));
   for (const s of pickedSchedules) add(entriesFor(s.people.map(p => p.id), 10));
@@ -131,6 +133,7 @@ export function buildAsk({ question, history = [], refs = [], attachments = [] }
     ...refsM.filter(r => pick('meeting', r.meeting.uid)).map(r => `the meeting "${r.meeting.title}" [${r.ref}]`)
   ];
   if (focus.length) system += `\n\nThe writer pointed you at: ${focus.join('; ')}. Center your answer on these.`;
+  if (keptOut) system += `\n\nThe writer also pointed at ${keptOut === 1 ? 'a note' : `${keptOut} notes`} they keep out of AI, so you can't see ${keptOut === 1 ? 'it' : 'them'}. Say so in one short line, then answer from what you can see.`;
   // Updates and clarifications the writer added to these people, notes and meetings (not journal entries).
   const ctx = contextBlock([
     ...[...personIds].filter(id => peopleById[id]).slice(0, 6).map(id => ({ kind: 'person', id, label: `${peopleById[id].name} [${pRef[id]}]` })),

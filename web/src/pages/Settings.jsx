@@ -7,6 +7,7 @@ import { formatDate } from '../lib/format.js';
 import { lastReflect } from '../components/ReflectNav.jsx';
 import { AIKeys, KeyField, useConnections } from '../components/Connections.jsx';
 import { StylePicker, InspirationPicker } from '../components/LeadershipStyles.jsx';
+import { useSetup, SETUP_STEPS } from '../components/SetupCard.jsx';
 import { CalendarSettings, InviteSettings, NotificationSettings, PasskeySettings, BackupSettings, UpdateSettings } from '../components/SecuritySettings.jsx';
 
 const AI = { anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini' };
@@ -25,6 +26,16 @@ const SECTIONS = [
 // Old links pointed at sections of one long page.
 const LEGACY = { career: 'career', calendar: 'meetings', invites: 'meetings', notifications: 'notifications', updates: 'updates' };
 
+/** "Not set up" or "Set up" on a Settings row, for the sections the Today checklist covers. */
+function RowStatus({ setup, section }) {
+  const step = setup && SETUP_STEPS.find(x => x.section === section);
+  if (!step) return null;
+  if (step.k === 'backups' && setup.backups_failing) return <span className="row-status todo">Last backup failed</span>;
+  return setup[step.k]
+    ? <span className="row-status ok"><Icon name="check" size={12} /> Set up</span>
+    : <span className="row-status todo">{step.k === 'passkey' ? 'No passkey' : 'Not set up'}</span>;
+}
+
 export default function Settings() {
   const nav = useNavigate();
   const loc = useLocation();
@@ -35,6 +46,7 @@ export default function Settings() {
   const [backups, setBackups] = useState(null);
   const [saved, setSaved] = useState('');
   const [version, setVersion] = useState(null);
+  const setup = useSetup();
   useEffect(() => { api.get('/health').then(h => setVersion(h.version)).catch(() => {}); }, []);
   const timer = useRef();
 
@@ -87,6 +99,7 @@ export default function Settings() {
             <Link key={x.k} to={`/settings/${x.k}`} state={{ fromList: true }} className="settings-row">
               <span className="ic"><Icon name={x.icon} size={18} /></span>
               <span className="grow"><b>{x.title}</b><small>{x.sub}</small></span>
+              <RowStatus setup={setup} section={x.k} />
               <Icon name="chevron" size={18} />
             </Link>
           ))}
@@ -331,6 +344,12 @@ function CareerSettings({ career, onChange }) {
     </label>
     <p className="small muted" style={{ marginTop: -4 }}>Shown as quick links next to your drafts, so you can paste straight into your profile or site.</p>
 
+    <h2 className="section-title">Never publish</h2>
+    <label className="field"><span>Employers, clients, codenames <small>(one per line, with a stand-in after =)</small></span>
+      <textarea className="textarea" rows={4} value={career.never_publish || ''} onChange={e => onChange({ never_publish: e.target.value })} placeholder={'Acme Corp = a large retailer\nProject Falcon = a new checkout\nNorthwind = a healthcare client'} {...noAuto} />
+    </label>
+    <p className="small muted" style={{ marginTop: -4 }}>Replaced in stories, resume lines, LinkedIn drafts and public kudos, the same way names of people are. Without a stand-in, the term becomes [removed]. Not case sensitive.</p>
+
     <h2 className="section-title">Story format</h2>
     <label className="field"><span>Front matter</span>
       <select className="select" value={career.story_format || 'heartwood'} onChange={e => onChange({ story_format: e.target.value })}>
@@ -343,6 +362,12 @@ function CareerSettings({ career, onChange }) {
       <textarea className="textarea" rows={6} value={career.story_sections || ''} onChange={e => onChange({ story_sections: e.target.value })} placeholder={STORY_SECTIONS_DEFAULT} />
     </label>
     <p className="small muted" style={{ marginTop: -4 }}>Leave empty to use the six shown. Applies to new story drafts.</p>
+
+    <h2 className="section-title">Self-reviews</h2>
+    <label className="field"><span>Review headings <small>(one per line, in order)</small></span>
+      <textarea className="textarea" rows={4} value={career.review_sections || ''} onChange={e => onChange({ review_sections: e.target.value })} placeholder={'Wins\nHow I led\nHow I grew\nWhat’s next'} />
+    </label>
+    <p className="small muted" style={{ marginTop: -4 }}>Use your company’s competencies or review questions if you have them. Leave empty for the four shown.</p>
 
     <h2 className="section-title">Portfolio repository <small className="muted" style={{ fontWeight: 400 }}>(optional)</small></h2>
     <label className="field"><span>Repository</span>

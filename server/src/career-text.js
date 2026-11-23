@@ -35,15 +35,50 @@ export function removeNamesFrom(text, people = []) {
   return { text: t, replaced, ambiguous };
 }
 
-const JOB_SEEKING = /\b(open to (new )?(work|roles|opportunities)|looking for (my )?(next|a new) (role|position|opportunity|challenge)|seeking (a )?(new )?(role|position|opportunit)|job (search|hunt)|next chapter|available for (hire|new roles)|hire me|actively interviewing)\b/i;
+/**
+ * The never-publish list from Settings → Career export, one per line: "Acme Corp = a large retailer".
+ * A line without "=" gets a neutral stand-in.
+ */
+export function parseNeverList(text) {
+  return String(text || '').split('\n').map(l => {
+    const [term, ...rest] = l.split('=');
+    return { term: term.trim(), stand_in: rest.join('=').trim() };
+  }).filter(x => x.term.length >= 2).slice(0, 100);
+}
+
+/** Replace never-publish terms (employers, clients, codenames) with their stand-ins, like names. */
+export function replaceTermsIn(text, list = []) {
+  let t = String(text || '');
+  let replaced = 0;
+  for (const { term, stand_in: standIn } of [...list].sort((a, b) => b.term.length - a.term.length)) {
+    const re = new RegExp(`(?<![\\w])${escRe(term)}(['’]s)?(?![\\w])`, 'gi');
+    t = t.replace(re, (m, poss, offset, whole) => {
+      replaced++;
+      let out = standIn || '[removed]';
+      const before = whole.slice(0, offset);
+      if (!before.trim() || /[.!?]\s+$|\n\s*$|^\s*[-*]\s+$/.test(before.slice(-4))) out = out[0].toUpperCase() + out.slice(1);
+      return out + (poss || '');
+    });
+  }
+  return { text: t, replaced };
+}
+
+/** Never-publish terms still in the text, for example ones typed back in while editing. */
+export const termsIn = (text, list = []) => list.filter(({ term }) => new RegExp(`(?<![\\w])${escRe(term)}(?![\\w])`, 'i').test(String(text || ''))).map(x => x.term);
+
+const JOB_SEEKING =/\b(open to (new )?(work|roles|opportunities)|looking for (my )?(next|a new) (role|position|opportunity|challenge)|seeking (a )?(new )?(role|position|opportunit)|job (search|hunt)|next chapter|available for (hire|new roles)|hire me|actively interviewing)\b/i;
 
 /** Things to check before a draft leaves Heartwood. */
 /** Where the writer is in their career, set in Settings → Career export. Decides the job-seeking check. */
 export const JOB_STATUSES = ['employed', 'quiet', 'open'];
 
-export function checkText(text, { replaced = 0, ambiguous = [], jobStatus = 'employed' } = {}) {
+export function checkText(text, { replaced = 0, ambiguous = [], jobStatus = 'employed', never = [], termsReplaced = 0 } = {}) {
   const t = String(text || '');
   const flags = [];
+  const still = termsIn(t, never);
+  if (still.length) flags.push({ level: 'warn', text: `Contains ${still.slice(0, 6).join(', ')}, from your never-publish list.` });
+  if (termsReplaced) flags.push({ level: 'info', text: `Replaced ${termsReplaced} term${termsReplaced > 1 ? 's' : ''} from your never-publish list with stand-ins.` });
+  if (/\[removed\]/.test(t)) flags.push({ level: 'info', text: 'Some terms became [removed]. Rewrite those sentences, or add a stand-in to the never-publish list in Settings.' });
   if (ambiguous.length) flags.push({ level: 'warn', text: `More than one person in Heartwood is named ${ambiguous.join(', ')}, so those names were left in. Replace them by hand.` });
   if (replaced) flags.push({ level: 'info', text: `Replaced ${replaced} name${replaced > 1 ? 's' : ''} of people in Heartwood with role labels. Check they read naturally.` });
   if (/[\w.+-]+@[\w-]+\.[\w.]+/.test(t)) flags.push({ level: 'warn', text: 'Contains an email address.' });
@@ -57,7 +92,7 @@ export function checkText(text, { replaced = 0, ambiguous = [], jobStatus = 'emp
   if (todos) flags.push({ level: 'info', text: `${todos} TODO note${todos > 1 ? 's' : ''} to fill in. Fill them in or delete them before you publish.` });
   // Pairs of capitalized words mid-sentence may be names Heartwood doesn't know.
   const allow = /^(Product Design|Content Design|Design System|United States|New York|Human Resources)$/;
-  const maybe = [...new Set([...t.matchAll(/(?<=[a-z,;:] )([A-Z][a-z]+ [A-Z][a-z]+)\b/g)].map(m => m[1]).filter(n => !allow.test(n)))].slice(0, 6);
+  const maybe = [...new Set([...t.matchAll(/(?<=[a-z,;:] )([A-Z][a-z]+ [A-Z][a-z]+)\b/g)].map(m => m[1]).filter(n => !allow.test(n) && !still.some(x => x.toLowerCase() === n.toLowerCase())))].slice(0, 6);
   if (maybe.length) flags.push({ level: 'warn', text: `Possible names to check: ${maybe.join(', ')}.` });
   return flags;
 }

@@ -4,12 +4,12 @@
 //   2. Evidence is private too, but only about the writer, and only kept once the writer confirms it.
 //   3. Drafts leave Heartwood only when the writer exports or copies them, after names are removed
 //      and anything risky is flagged.
-import { db, newId, now, hydrateEntry, getSettings, listPeople, safeJson } from './db.js';
+import { db, newId, now, hydrateEntry, getSettings, listPeople, safeJson, forAi } from './db.js';
 import { config } from './config.js';
 import { complete } from './llm.js';
-import { evidencePrompt, evidenceCombinePrompt, storyDraftPrompt, resumeDraftPrompt, linkedinKitPrompt, recognitionPrompt, CAREER_THEMES } from './prompts.js';
+import { evidencePrompt, evidenceCombinePrompt, storyDraftPrompt, reviewDraftPrompt, resumeDraftPrompt, resumeTextPrompt, linkedinKitPrompt, recognitionPrompt, CAREER_THEMES } from './prompts.js';
 import { fitToBudget, latestGrowth } from './briefs.js';
-import { removeNamesFrom, checkText as checkTextFor, JOB_STATUSES, storyMarkdown, storySections, slugify, normalizeRecord, applyResumeChanges } from './career-text.js';
+import { removeNamesFrom, replaceTermsIn, parseNeverList, checkText as checkTextFor, JOB_STATUSES, storyMarkdown, storySections, slugify, normalizeRecord, applyResumeChanges } from './career-text.js';
 export { slugify };
 
 export class CareerError extends Error {}
@@ -32,7 +32,7 @@ export function listEvidence(status) {
 }
 
 export async function extractEvidence({ fromIso, toIso }) {
-  const rows = db.prepare('SELECT * FROM entries WHERE created_at BETWEEN ? AND ? ORDER BY created_at ASC').all(fromIso, toIso);
+  const rows = forAi(db.prepare('SELECT * FROM entries WHERE created_at BETWEEN ? AND ? ORDER BY created_at ASC').all(fromIso, toIso));
   if (!rows.length) throw new CareerError('No entries in that range yet.');
   const entries = fitToBudget(rows.map(r => hydrateEntry(r)), 2600);
   const known = new Set(entries.map(e => e.id));
@@ -128,10 +128,31 @@ export function addEvidence(b = {}) {
 }
 
 // ---------- privacy checks (pure functions live in career-text.js so they can be tested) ----------
-export const removeNames = (text) => removeNamesFrom(text, listPeople());
+export const neverList = () => parseNeverList(getSettings().career?.never_publish);
+/** Names of people out, then never-publish terms (employers, clients, codenames), for anything that may be public. */
+export function removeNames(text, { people = listPeople(), never = neverList() } = {}) {
+  const n = removeNamesFrom(text, people);
+  const t = replaceTermsIn(n.text, never);
+  return { text: t.text, replaced: n.replaced, ambiguous: n.ambiguous, terms: t.replaced };
+}
 export const jobStatus = () => (JOB_STATUSES.includes(getSettings().career?.job_status) ? getSettings().career.job_status : 'employed');
-/** The pre-sharing checks, with the writer's job status from Settings. */
-export const checkText = (text, opts = {}) => checkTextFor(text, { ...opts, jobStatus: jobStatus() });
+/** The pre-sharing checks, with the writer's job status and never-publish list from Settings. */
+export const checkText = (text, opts = {}) => checkTextFor(text, { never: neverList(), ...opts, jobStatus: jobStatus() });
+
+// Numbers worth checking: percentages, money, multiples, and anything with two or more digits.
+const numbersIn = s => [...String(s || '').matchAll(/[$£€]?\d[\d,.]*\s?(?:%|x\b|k\b|m\b|million|billion)?/gi)]
+  .map(m => m[0].trim().replace(/[.,]$/, '')).filter(n => /[%$£€xkm]|\d{2,}/i.test(n));
+
+/** Which evidence in a public draft isn't marked OK to share, and which of its numbers made it into the text. */
+export function unmarkedFlag(evidenceIds, text) {
+  const un = (evidenceIds || []).map(id => db.prepare('SELECT text, detail, metric, public_ok FROM evidence WHERE id = ?').get(id)).filter(e => e && !e.public_ok);
+  if (!un.length) return null;
+  const t = String(text || '');
+  const nums = [...new Set(un.flatMap(e => numbersIn(`${e.text} ${e.metric} ${e.detail}`)).filter(n => t.includes(n)))].slice(0, 6);
+  const short = s => (s.length > 60 ? `${s.slice(0, 57).trim()}…` : s);
+  const list = un.slice(0, 3).map(e => `“${short(e.text)}”`).join(', ') + (un.length > 3 ? ` and ${un.length - 3} more` : '');
+  return { level: 'warn', text: `Uses ${un.length} item${un.length > 1 ? 's' : ''} you haven’t marked OK to share publicly: ${list}.${nums.length ? ` Numbers from them in this draft: ${nums.join(', ')}.` : ''} Check those details, or mark the items in your record.` };
+}
 
 // ---------- GitHub (portfolio repo) ----------
 export function githubStatus() {
@@ -220,15 +241,20 @@ async function openPullRequest({ files, title, body, slug }) {
 }
 
 // ---------- drafts ----------
+// Stories and reviews are Markdown text; the other kinds are JSON.
+export const TEXT_KINDS = ['story', 'review'];
 export const draftOut = r => r && ({
   ...r, flags: safeJson(r.flags, []), evidence_ids: safeJson(r.evidence_ids, []),
-  content: r.kind === 'story' ? r.content : safeJson(r.content, {})
+  content: TEXT_KINDS.includes(r.kind) ? r.content : safeJson(r.content, {})
 });
 
-function pickEvidence(ids) {
+function pickEvidence(ids, { from = null, to = null } = {}) {
   const rows = Array.isArray(ids) && ids.length
     ? ids.map(id => db.prepare("SELECT * FROM evidence WHERE id = ? AND status = 'confirmed'").get(id)).filter(Boolean)
-    : db.prepare("SELECT * FROM evidence WHERE status = 'confirmed' ORDER BY COALESCE(date, created_at) DESC LIMIT 120").all();
+    : from && to
+      ? db.prepare("SELECT * FROM evidence WHERE status = 'confirmed' AND COALESCE(date, substr(created_at, 1, 10)) BETWEEN ? AND ? ORDER BY COALESCE(date, created_at) DESC LIMIT 120").all(from, to)
+      : db.prepare("SELECT * FROM evidence WHERE status = 'confirmed' ORDER BY COALESCE(date, created_at) DESC LIMIT 120").all();
+  if (!rows.length && from) throw new CareerError('Nothing in your record for that period yet. Find evidence for it first, or pick a longer period.');
   if (!rows.length) throw new CareerError('Confirm some evidence first. Drafts are built only from evidence you’ve kept.');
   return rows.map(r => ({ ...r, public_ok: !!r.public_ok }));
 }
@@ -243,7 +269,42 @@ function saveDraft({ kind, title, content, flags, evidence }) {
   return draftOut(db.prepare('SELECT * FROM career_drafts WHERE id = ?').get(id));
 }
 
-export async function createDraft({ kind, angle = '', evidenceIds = [], current = '', personId = '', win = '' }) {
+/** The resume text from your last pasted-resume draft, so you don't have to paste it every time. */
+export function lastResumeText() {
+  const rows = db.prepare("SELECT content FROM career_drafts WHERE kind = 'resume' ORDER BY created_at DESC LIMIT 20").all();
+  for (const r of rows) { const c = safeJson(r.content, {}); if (c.source === 'pasted' && c.resume_text) return c.resume_text; }
+  return '';
+}
+
+const squash = s => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+/** Resume suggestions from a pasted or uploaded resume, for people without a portfolio repository. */
+async function resumeFromText({ evidence, profile, resumeText }) {
+  const text = clip(resumeText, 30000) || lastResumeText();
+  if (text.length < 80) throw new CareerError('Paste your current resume, or upload it, so Heartwood can suggest lines for it.');
+  const { system, messages } = resumeTextPrompt({ evidence, profile, resumeText: text });
+  const d = await complete({ system, messages, json: true, maxTokens: 5000, task: 'career' });
+  const evIds = new Set(evidence.map(e => e.id));
+  const flat = squash(text);
+  const changes = (Array.isArray(d?.changes) ? d.changes : []).slice(0, 8).map(c => {
+    const { text: line, replaced, ambiguous, terms } = removeNames(clip(c.text, 400));
+    const current = clip(c.current, 400);
+    const replace = c.action === 'replace' && current && flat.includes(squash(current));
+    return {
+      role_label: clip(c.role, 160), action: replace ? 'replace' : 'add', current: replace ? current : '', text: line, why: clip(c.why, 200),
+      evidence_ids: (Array.isArray(c.evidence_ids) ? c.evidence_ids : []).filter(id => evIds.has(id)), accepted: true, names_replaced: replaced, terms, ambiguous
+    };
+  }).filter(c => c.text);
+  const summary = clip(d?.summary, 1200);
+  const flags = checkText([summary, ...changes.map(c => c.text)].join('\n'), {
+    replaced: changes.reduce((n, c) => n + c.names_replaced, 0), ambiguous: [...new Set(changes.flatMap(c => c.ambiguous))], termsReplaced: changes.reduce((n, c) => n + c.terms, 0)
+  });
+  for (const c of changes) { delete c.ambiguous; delete c.terms; }
+  if (!changes.length && !summary) flags.push({ level: 'info', text: 'Your resume already reflects this evidence. Nothing to change.' });
+  return saveDraft({ kind: 'resume', title: `Resume updates, ${now().slice(0, 10)}`, content: { source: 'pasted', changes, summary, summary_accepted: !!summary, resume_text: text }, flags, evidence });
+}
+
+export async function createDraft({ kind, angle = '', evidenceIds = [], current = '', personId = '', win = '', resumeText = '', from = '', to = '' }) {
   const profile = getSettings().profile;
   if (kind === 'recognition') {
     const person = db.prepare('SELECT * FROM people WHERE id = ?').get(personId);
@@ -255,45 +316,61 @@ export async function createDraft({ kind, angle = '', evidenceIds = [], current 
     const d = await complete({ system, messages, json: true, maxTokens: 3000, task: 'kudos' });
     // Their name stays (that's the point). Everyone else's is replaced.
     const others = listPeople().filter(p => p.id !== person.id);
-    const parts = Object.fromEntries(['say', 'direct', 'channel', 'post', 'recommendation'].map(k => [k, removeNamesFrom(clip(d?.[k], 1500), others)]));
+    const pub = ['post', 'recommendation'];
+    const parts = Object.fromEntries(['say', 'direct', 'channel', ...pub].map(k => [k, removeNames(clip(d?.[k], 1500), { people: others, never: pub.includes(k) ? neverList() : [] })]));
     const content = { person_id: person.id, person_name: person.name, win: what, ...Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, v.text])), notes: clip(d?.notes, 600), sent: [] };
     const all = Object.values(parts);
     const flags = [
       { level: 'warn', text: `Ask ${person.name.split(' ')[0]} before you post publicly. Some people prefer to be recognized one-on-one.` },
-      ...checkText(all.map(v => v.text).join('\n'), { replaced: all.reduce((n, v) => n + v.replaced, 0), ambiguous: [...new Set(all.flatMap(v => v.ambiguous))] })
+      ...checkText(all.map(v => v.text).join('\n'), { replaced: all.reduce((n, v) => n + v.replaced, 0), ambiguous: [...new Set(all.flatMap(v => v.ambiguous))], termsReplaced: all.reduce((n, v) => n + v.terms, 0), never: [] })
     ];
     return saveDraft({ kind, title: `Kudos for ${person.name}`, content, flags, evidence: [] });
+  }
+  if (kind === 'review') {
+    const f = ymd(from), t = ymd(to);
+    if (!f || !t || f > t) throw new CareerError('Pick the period the review covers.');
+    const evidence = pickEvidence(evidenceIds, { from: f, to: t });
+    const c = getSettings().career || {};
+    const sections = String(c.review_sections || '').split('\n').map(l => l.replace(/^#+\s*/, '').trim()).filter(Boolean).slice(0, 12);
+    const { system, messages } = reviewDraftPrompt({ evidence, profile, sections, from: f, to: t, angle: clip(angle, 500) });
+    const d = await complete({ system, messages, json: true, maxTokens: 6000, task: 'career' });
+    // A self-review goes to your employer, so the never-publish list doesn't apply. Names of people still come out.
+    const title = clip(d?.title, 120) || `Self-review, ${f} to ${t}`;
+    const { text, replaced, ambiguous } = removeNames(`# ${title}\n\n${String(d?.body || '').trim()}\n`, { never: [] });
+    return saveDraft({ kind, title, content: text, flags: checkText(text, { replaced, ambiguous, never: [] }), evidence });
   }
   if (kind === 'story') {
     const evidence = pickEvidence(evidenceIds);
     const c = getSettings().career || {};
     const { system, messages } = storyDraftPrompt({ evidence, profile, angle: clip(angle, 500), sections: storySections(c.story_sections) });
     const d = await complete({ system, messages, json: true, maxTokens: 6000, task: 'career' });
-    const { text, replaced, ambiguous } = removeNames(storyMarkdown(d || {}, { format: c.story_format }));
-    const flags = checkText(text, { replaced, ambiguous });
-    if (evidence.some(e => !e.public_ok)) flags.unshift({ level: 'warn', text: 'Uses evidence you haven’t marked as OK to share publicly. Review those details.' });
+    const { text, replaced, ambiguous, terms } = removeNames(storyMarkdown(d || {}, { format: c.story_format }));
+    const flags = checkText(text, { replaced, ambiguous, termsReplaced: terms });
+    const un = unmarkedFlag(evidence.map(e => e.id), text);
+    if (un) flags.unshift(un);
     return saveDraft({ kind, title: d?.title || 'Story draft', content: text, flags, evidence });
   }
   if (kind === 'resume') {
     const evidence = pickEvidence(evidenceIds);
+    if (resumeText.trim() || !githubStatus().ready) return resumeFromText({ evidence, profile, resumeText });
     const { record, format } = await readCareerRecord();
     const { system, messages } = resumeDraftPrompt({ evidence, profile, record });
     const d = await complete({ system, messages, json: true, maxTokens: 5000, task: 'career' });
     const roleIds = new Set(record.roles.map(r => r.id));
     const evIds = new Set(evidence.map(e => e.id));
     const changes = (Array.isArray(d?.changes) ? d.changes : []).slice(0, 8).map(c => {
-      const { text, replaced, ambiguous } = removeNames(clip(c.text, 400));
+      const { text, replaced, ambiguous, terms } = removeNames(clip(c.text, 400));
       const role = record.roles.find(r => r.id === c.role_id);
       return {
         role_id: c.role_id, role_label: role ? `${role.title}, ${role.org}` : '', action: c.action === 'replace' ? 'replace' : 'add',
         index: Number.isInteger(c.index) ? c.index : null, current: c.action === 'replace' && role ? role.highlights?.[c.index]?.text || '' : '',
         text, visibility: c.visibility === 'public' ? 'public' : 'resume', why: clip(c.why, 200),
-        evidence_ids: (c.evidence_ids || []).filter(id => evIds.has(id)), accepted: true, names_replaced: replaced, ambiguous
+        evidence_ids: (c.evidence_ids || []).filter(id => evIds.has(id)), accepted: true, names_replaced: replaced, terms, ambiguous
       };
     }).filter(c => roleIds.has(c.role_id) && c.text && !(c.action === 'replace' && !c.current));
     const summary = clip(d?.summary, 1200);
-    const flags = checkText([summary, ...changes.map(c => c.text)].join('\n'), { replaced: changes.reduce((n, c) => n + c.names_replaced, 0), ambiguous: [...new Set(changes.flatMap(c => c.ambiguous))] });
-    for (const c of changes) { delete c.ambiguous; }
+    const flags = checkText([summary, ...changes.map(c => c.text)].join('\n'), { replaced: changes.reduce((n, c) => n + c.names_replaced, 0), ambiguous: [...new Set(changes.flatMap(c => c.ambiguous))], termsReplaced: changes.reduce((n, c) => n + c.terms, 0) });
+    for (const c of changes) { delete c.ambiguous; delete c.terms; }
     if (!changes.length && !summary) flags.push({ level: 'info', text: 'Your resume already reflects this evidence. Nothing to change.' });
     return saveDraft({ kind, title: `Resume updates, ${now().slice(0, 10)}`, content: { changes, summary, summary_accepted: !!summary, format }, flags, evidence });
   }
@@ -317,7 +394,10 @@ export async function createDraft({ kind, angle = '', evidenceIds = [], current 
     const all = [parts.headline, parts.about, ...parts.bullets, ...parts.posts.map(p => p.draft)];
     const replaced = all.reduce((n, x) => n + x.replaced, 0);
     const ambiguous = [...new Set(all.flatMap(x => x.ambiguous))];
-    const flags = checkText([content.headline, content.about, ...content.experience.bullets, ...content.posts.map(p => p.draft)].join('\n'), { replaced, ambiguous });
+    const kitText = [content.headline, content.about, ...content.experience.bullets, ...content.posts.map(p => p.draft)].join('\n');
+    const flags = checkText(kitText, { replaced, ambiguous, termsReplaced: all.reduce((n, x) => n + x.terms, 0) });
+    const un = unmarkedFlag(evidence.map(e => e.id), kitText);
+    if (un) flags.unshift(un);
     return saveDraft({ kind, title: `LinkedIn update kit, ${now().slice(0, 10)}`, content, flags, evidence });
   }
   throw new CareerError('Unknown draft type.');
@@ -328,11 +408,15 @@ export function updateDraft(id, b = {}) {
   if (!row) throw new CareerError('Not found');
   let content = row.content;
   if (b.content !== undefined) {
-    if (row.kind === 'story') content = clip(b.content, 60000);
+    if (TEXT_KINDS.includes(row.kind)) content = clip(b.content, 60000);
     else if (b.content && typeof b.content === 'object') content = JSON.stringify(b.content).slice(0, 60000);
   }
-  const text = row.kind === 'story' ? content : JSON.stringify(safeJson(content, {}));
-  const flags = checkText(text);
+  const text = TEXT_KINDS.includes(row.kind) ? content : JSON.stringify(safeJson(content, {}));
+  const flags = checkText(text, row.kind === 'review' ? { never: [] } : {});
+  if (row.kind === 'story' || row.kind === 'linkedin') {
+    const un = unmarkedFlag(safeJson(row.evidence_ids, []), text);
+    if (un) flags.unshift(un);
+  }
   db.prepare('UPDATE career_drafts SET content = ?, title = ?, flags = ?, updated_at = ? WHERE id = ?')
     .run(content, typeof b.title === 'string' && b.title.trim() ? clip(b.title, 200) : row.title, JSON.stringify(flags), now(), id);
   return draftOut(db.prepare('SELECT * FROM career_drafts WHERE id = ?').get(id));
@@ -358,6 +442,7 @@ export async function exportDraft(id) {
     });
   } else if (row.kind === 'resume') {
     const c = safeJson(row.content, {});
+    if (c.source === 'pasted') throw new CareerError('These suggestions are for the resume you pasted. Copy them into it yourself.');
     const accepted = (c.changes || []).filter(x => x.accepted);
     if (!accepted.length && !(c.summary && c.summary_accepted)) throw new CareerError('Pick at least one change to export.');
     const { raw, format } = await readCareerRecord();
@@ -369,7 +454,7 @@ export async function exportDraft(id) {
       body: `Suggested resume updates you approved in Heartwood.\n\n${accepted.map(x => `- **${x.action === 'replace' ? 'Replace' : 'Add'}** (${x.role_label || x.role_id}): ${x.text}`).join('\n')}${c.summary && c.summary_accepted ? `\n- **New summary:** ${c.summary}` : ''}${format === 'heartwood' ? '\n\nItems marked `resume` are meant for the resume only, not the public site.' : ''}`
     });
   } else {
-    throw new CareerError('You copy this draft into LinkedIn yourself. There’s nothing to export.');
+    throw new CareerError(row.kind === 'review' ? 'Copy or download your review. There’s nothing to export.' : 'You copy this draft into LinkedIn yourself. There’s nothing to export.');
   }
   db.prepare("UPDATE career_drafts SET status = 'exported', pr_url = ?, updated_at = ? WHERE id = ?").run(url, now(), id);
   return draftOut(db.prepare('SELECT * FROM career_drafts WHERE id = ?').get(id));

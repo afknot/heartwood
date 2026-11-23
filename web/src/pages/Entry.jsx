@@ -270,7 +270,18 @@ export default function Entry() {
         </details>
       )}
 
-      <AnalysisPanel entry={entry} onRun={runAnalysis} onAddTodos={addTodos} busy={analyzing} onDismissError={() => patchNow({ clear_error: true })} />
+      {entry.no_ai ? (
+        <section className="card kept-out" aria-label="Kept out of AI">
+          <div className="row" style={{ alignItems: 'flex-start', gap: 10 }}>
+            <Icon name="key" size={18} />
+            <div className="grow">
+              <b>Kept out of AI</b>
+              <p className="small muted" style={{ margin: '2px 0 8px' }}>Reflection, prep, Ask, debriefs, growth records and your career record leave this note out. It’s still in your journal and search.</p>
+              <button className="btn small" onClick={() => patchNow({ no_ai: false })}>Allow AI on this note</button>
+            </div>
+          </div>
+        </section>
+      ) : <AnalysisPanel entry={entry} onRun={runAnalysis} onAddTodos={addTodos} busy={analyzing} onDismissError={() => patchNow({ clear_error: true })} />}
 
       <PeoplePicker open={sheet === 'people'} onClose={() => setSheet(null)} selected={allPeople.map(p => p.id)}
         onChange={ids => patchNow({ people: ids })} />
@@ -303,6 +314,12 @@ export default function Entry() {
             }} />
           </label>
         )}
+        <label className="check plain mb">
+          <input type="checkbox" checked={!!entry.no_ai} onChange={e => patchNow({ no_ai: e.target.checked })} />
+          <span>Keep out of AI
+            <br /><small className="muted">Never sent to your AI provider: no reflection, and left out of prep, Ask, debriefs, growth records and career evidence.{entry.analysis ? ' Its reflection is hidden while this is on.' : ''}</small>
+          </span>
+        </label>
         <button className="btn block danger" onClick={remove}><Icon name="trash" size={18} /> Delete entry</button>
       </Sheet>
     </main>

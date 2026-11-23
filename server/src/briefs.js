@@ -1,4 +1,4 @@
-import { db, newId, now, hydrateEntry, getSettings, listPeople } from './db.js';
+import { db, newId, now, hydrateEntry, getSettings, listPeople, forAi } from './db.js';
 import { complete } from './llm.js';
 import { personBriefPrompt, growthPrompt, periodReportPrompt } from './prompts.js';
 
@@ -21,7 +21,7 @@ export class BriefError extends Error {}
 export async function createPersonBrief(personId) {
   const person = db.prepare('SELECT * FROM people WHERE id = ?').get(personId);
   if (!person) throw new BriefError('Not found');
-  const rows = db.prepare(`SELECT e.* FROM entries e JOIN entry_people ep ON ep.entry_id = e.id WHERE ep.person_id = ? ORDER BY e.created_at ASC`).all(person.id);
+  const rows = forAi(db.prepare(`SELECT e.* FROM entries e JOIN entry_people ep ON ep.entry_id = e.id WHERE ep.person_id = ? ORDER BY e.created_at ASC`).all(person.id));
   if (!rows.length) throw new BriefError(`No entries are linked to ${person.name} yet.`);
   const entries = fitToBudget(rows.map(r => hydrateEntry(r)), 3200);
   const s = getSettings();
@@ -42,7 +42,7 @@ export async function createGrowth(personId) {
   const person = db.prepare('SELECT * FROM people WHERE id = ?').get(personId);
   if (!person) throw new BriefError('Not found');
   if (person.relationship !== 'direct_report') throw new BriefError('Growth records are for your direct reports. Set the relationship to Direct report to build one.');
-  const rows = db.prepare(`SELECT e.* FROM entries e JOIN entry_people ep ON ep.entry_id = e.id WHERE ep.person_id = ? ORDER BY e.created_at ASC`).all(person.id);
+  const rows = forAi(db.prepare(`SELECT e.* FROM entries e JOIN entry_people ep ON ep.entry_id = e.id WHERE ep.person_id = ? ORDER BY e.created_at ASC`).all(person.id));
   if (!rows.length) throw new BriefError(`No entries are linked to ${person.name} yet.`);
   const entries = fitToBudget(rows.map(r => hydrateEntry(r)), 2800);
   const known = new Map(entries.map(e => [e.id, e]));
@@ -81,7 +81,7 @@ export function latestGrowth(personId) {
 
 // ---------- debriefs over a period (kind 'period') ----------
 export async function createPeriodReport({ fromIso, toIso, from, to, focus = '' }) {
-  const rows = db.prepare('SELECT * FROM entries WHERE created_at BETWEEN ? AND ? ORDER BY created_at ASC').all(fromIso, toIso);
+  const rows = forAi(db.prepare('SELECT * FROM entries WHERE created_at BETWEEN ? AND ? ORDER BY created_at ASC').all(fromIso, toIso));
   if (!rows.length) throw new BriefError('No entries in that range yet.');
   const entries = fitToBudget(rows.map(r => hydrateEntry(r)), 2700);
   const s = getSettings();

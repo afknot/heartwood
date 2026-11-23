@@ -462,7 +462,12 @@ const MIGRATIONS = [
     }
   },
   // 24: Live coach is opt-in (it spends AI tokens all through a recording), so it starts off.
-  () => db.prepare(`INSERT INTO settings(key, value) VALUES ('live_coach', 'false') ON CONFLICT(key) DO UPDATE SET value = 'false'`).run()
+  () => db.prepare(`INSERT INTO settings(key, value) VALUES ('live_coach', 'false') ON CONFLICT(key) DO UPDATE SET value = 'false'`).run(),
+  // 25: Keep out of AI, per note. Those notes are never sent to an AI provider.
+  () => {
+    const cols = db.prepare(`PRAGMA table_info(entries)`).all().map(c => c.name);
+    if (!cols.includes('no_ai')) db.exec(`ALTER TABLE entries ADD COLUMN no_ai INTEGER NOT NULL DEFAULT 0`);
+  }
 ];
 {
   const current = db.pragma('user_version', { simple: true });
@@ -500,9 +505,12 @@ export function saveSettings(patch) {
 }
 
 // ---------- entries ----------
+/** Notes you can send to an AI provider: everything except the ones marked Keep out of AI. */
+export const forAi = rows => rows.filter(r => r && !r.no_ai);
+
 export function hydrateEntry(row, { withPeople = true } = {}) {
   if (!row) return null;
-  const e = { ...row, tags: safeJson(row.tags, []), analysis: safeJson(row.analysis, null), consent_confirmed: !!row.consent_confirmed };
+  const e = { ...row, tags: safeJson(row.tags, []), analysis: safeJson(row.analysis, null), consent_confirmed: !!row.consent_confirmed, no_ai: !!row.no_ai };
   e.has_audio = !!row.audio_file;
   delete e.audio_file;
   if (withPeople) {
@@ -546,14 +554,14 @@ export function linkMentions(entryId, md) {
 
 export function updateEntry(id, fields) {
   const cols = ['title', 'kind', 'body_md', 'transcript', 'tags', 'audio_file', 'audio_mime', 'audio_seconds',
-    'status', 'error', 'analysis', 'analysis_at', 'consent_confirmed', 'created_at', 'source_text'];
+    'status', 'error', 'analysis', 'analysis_at', 'consent_confirmed', 'created_at', 'source_text', 'no_ai'];
   const sets = [];
   const vals = [];
   for (const c of cols) {
     if (fields[c] === undefined) continue;
     let v = fields[c];
     if (c === 'tags' || c === 'analysis') v = v === null ? null : JSON.stringify(v);
-    if (c === 'consent_confirmed') v = v ? 1 : 0;
+    if (c === 'consent_confirmed' || c === 'no_ai') v = v ? 1 : 0;
     sets.push(`${c} = ?`);
     vals.push(v);
   }

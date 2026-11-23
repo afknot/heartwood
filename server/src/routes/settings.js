@@ -65,6 +65,18 @@ settings.get('/ai/usage', (req, res) => {
   const days = Math.min(365, Math.max(1, Number(req.query.days) || 30));
   res.json(usageSummary({ since: new Date(Date.now() - days * 864e5).toISOString() }));
 });
+// What's left to set up, for the checklist on Today and the status on each Settings row.
+settings.get('/setup', (req, res) => {
+  const p = getSettings().profile || {};
+  const b = backupInfo();
+  res.json({
+    ai: Object.values(availableProviders().analysis || {}).some(Boolean),
+    you: !!(String(p.role || '').trim() && (String(p.team || '').trim() || String(p.goals || '').trim())),
+    backups: !!b.enabled && b.offsite?.ok !== false,
+    backups_failing: !!b.enabled && b.offsite?.ok === false,
+    passkey: !!db.prepare('SELECT 1 FROM passkeys LIMIT 1').get()
+  });
+});
 settings.get('/settings', (req, res) => res.json({ settings: getSettings(), available: availableProviders(), backups: backupInfo() }));
 
 settings.put('/settings', (req, res) => {

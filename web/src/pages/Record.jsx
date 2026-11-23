@@ -116,6 +116,30 @@ function MicCheck({ deviceId, setDeviceId, disabled }) {
   );
 }
 
+const TRANSCRIBER = { local: 'on your server', openai: 'by OpenAI', gemini: 'by Gemini' };
+const REFLECTOR = { anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini' };
+
+/** One line on where this recording goes next, and a way to keep this one away from AI reflection. */
+function WhereItGoes({ prefs, noAi, setNoAi }) {
+  const t = TRANSCRIBER[prefs.transcribe_provider] || TRANSCRIBER.local;
+  const reflects = prefs.auto_analyze && !noAi;
+  return (
+    <div className="where-goes">
+      <p className="small" style={{ margin: 0 }}>
+        Saved on this device, then on your server. Transcribed {t}.
+        {' '}{reflects ? `Then ${REFLECTOR[prefs.ai_provider] || 'your AI'} reflects on it.` : noAi ? 'Kept out of AI after that.' : 'No reflection until you ask for one.'}
+        {prefs.delete_audio_after_transcribe ? ' The audio is deleted once it’s transcribed.' : ''}
+      </p>
+      <label className="check plain" style={{ marginTop: 8 }}>
+        <input type="checkbox" checked={noAi} onChange={e => setNoAi(e.target.checked)} />
+        <span>Don’t reflect on this one
+          <br /><small className="muted">Keeps the note out of every AI feature: reflection, prep, Ask, debriefs and your career record. You can change it on the note later.{prefs.transcribe_provider && prefs.transcribe_provider !== 'local' ? ' Transcription still goes to the provider above.' : ''}</small>
+        </span>
+      </label>
+    </div>
+  );
+}
+
 export default function Record() {
   const nav = useNavigate();
   const [params] = useSearchParams();
@@ -137,7 +161,9 @@ export default function Record() {
   const [saved, setSaved] = useState(null); // { seconds, entryId } after an interruption
   // Live coach follows Settings; the checkbox here changes it for this recording only.
   const [coachOn, setCoachOn] = useState(false);
-  useEffect(() => { api.get('/settings').then(r => setCoachOn(r.settings?.live_coach === true)).catch(() => {}); }, []);
+  const [prefs, setPrefs] = useState(null); // where recordings go: transcription, reflection, audio
+  const [noAi, setNoAi] = useState(false);
+  useEffect(() => { api.get('/settings').then(r => { setCoachOn(r.settings?.live_coach === true); setPrefs(r.settings); }).catch(() => {}); }, []);
   const [coachState, setCoachState] = useState(null);
   const coachRef = useRef(null);
 
@@ -200,7 +226,7 @@ export default function Record() {
     const id = uuid();
     const meta = {
       client_id: id, kind, people: who, title: part.current > 1 ? `${title.trim() || 'Recording'} (part ${part.current})` : title.trim(),
-      seconds: 0, recorded_at: new Date().toISOString(), consent_confirmed: true
+      seconds: 0, recorded_at: new Date().toISOString(), consent_confirmed: true, no_ai: noAi
     };
     const r = new Recording({
       id, meta, deviceId, tabAudio: tabAudio && canShareTabAudio(),
@@ -221,7 +247,7 @@ export default function Record() {
     recRef.current = r;
     clock.current = { start: performance.now(), acc: 0 };
     stopCoach(); setCoachState(null);
-    if (coachOn && kind !== 'memo' && r.source) {
+    if (coachOn && !noAi && kind !== 'memo' && r.source) {
       const c = new LiveCoach({
         stream: r.source, kind, people: who, title: title.trim(), onChange: setCoachState,
         seconds: () => (clock.current.acc + (recRef.current?.state === 'recording' ? performance.now() - clock.current.start : 0)) / 1000
@@ -394,13 +420,15 @@ export default function Record() {
             </label>
           )}
           <label className="check plain" style={{ marginBottom: 10 }}>
-            <input type="checkbox" checked={coachOn} onChange={e => setCoachOn(e.target.checked)} />
+            <input type="checkbox" checked={coachOn && !noAi} disabled={noAi} onChange={e => setCoachOn(e.target.checked)} />
             <span>Live coach: suggest questions while you talk
               <br /><small className="muted">Every few minutes, the last part of the conversation goes to your AI for a suggestion or two. Uses AI tokens; nothing from it is saved.</small>
             </span>
           </label>
         </details>
       )}
+
+      {prefs && <WhereItGoes prefs={prefs} noAi={noAi} setNoAi={setNoAi} />}
 
       <label className="check consent-card">
         <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} />

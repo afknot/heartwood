@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import Icon from '../components/Icon.jsx';
 import { useApp } from '../lib/context.js';
-import { formatDate, safeHref } from '../lib/format.js';
+import { formatDate, safeHref, renderMarkdown } from '../lib/format.js';
 
 /** Copy text, falling back to selecting it when the clipboard isn't available. */
 function CopyButton({ text, label = 'Copy' }) {
@@ -30,6 +30,58 @@ function CopyBlock({ label, value, onChange, limit, rows = 4, share = false, onS
       </div>
       <textarea className="textarea" rows={rows} value={value} onChange={e => onChange(e.target.value)} />
     </div>
+  );
+}
+
+// Front matter (the --- block at the top) is for your site's build, not for reading.
+function readable(md) {
+  const m = /^---\n([\s\S]*?)\n---\n?/.exec(md || '');
+  if (!m) return md || '';
+  const v = k => ((new RegExp(`^${k}:\\s*"?(.*?)"?\\s*$`, 'm').exec(m[1]) || [])[1] || '').trim();
+  return `${v('title') ? `# ${v('title')}\n\n` : ''}${v('summary') ? `_${v('summary')}_\n\n` : ''}${md.slice(m[0].length)}`;
+}
+const readableHtml = md => renderMarkdown(readable(md)).replace(/<p>TODO:/g, '<p class="todo-line">TODO:');
+
+/** Copy as formatted text, so headings and bullets survive a paste into Squarespace, Google Docs or Word. */
+function CopyFormatted({ md }) {
+  const { notify } = useApp();
+  async function copy() {
+    const html = readableHtml(md);
+    const plain = Object.assign(document.createElement('div'), { innerHTML: html }).innerText;
+    try {
+      if (window.ClipboardItem && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }), 'text/plain': new Blob([plain], { type: 'text/plain' }) })]);
+      } else await navigator.clipboard.writeText(plain);
+      notify('Copied as formatted text');
+    } catch { notify('Couldn’t copy. Select the text and copy it instead.'); }
+  }
+  return <button className="btn small" onClick={copy}><Icon name="clip" size={16} /> Copy formatted</button>;
+}
+
+/** A story or self-review: read it rendered, or edit the Markdown. */
+function TextDraft({ kind, c, set, connected, links, onDownload }) {
+  const [mode, setMode] = useState('read');
+  return (
+    <section className="card copy-block">
+      <div className="row mb" style={{ flexWrap: 'wrap', gap: 8 }}>
+        <div className="seg" role="group" aria-label="View">
+          <button aria-pressed={mode === 'read'} className={mode === 'read' ? 'on' : ''} onClick={() => setMode('read')}>Read</button>
+          <button aria-pressed={mode === 'edit'} className={mode === 'edit' ? 'on' : ''} onClick={() => setMode('edit')}>Edit</button>
+        </div>
+        <span className="grow" />
+        <CopyFormatted md={c} />
+        <CopyButton text={c} label="Copy Markdown" />
+        <button className={`btn small${connected || kind === 'review' ? '' : ' primary'}`} onClick={onDownload}><Icon name="note" size={16} /> Download .md</button>
+        {kind === 'story' && safeHref(links.portfolio) && <a className="btn small ghost" href={safeHref(links.portfolio)} target="_blank" rel="noreferrer">Open your portfolio</a>}
+      </div>
+      <p className="small muted" style={{ marginTop: 0 }}>{kind === 'review'
+        ? 'Your self-review. Lines starting with TODO: are questions for you; fill them in or delete them before you submit it.'
+        : 'The story file for your portfolio. Lines starting with TODO: are questions for you; fill them in or delete them before you publish.'}
+        {' '}Copy formatted keeps headings and bullets for editors like Squarespace or Google Docs; Copy Markdown is for your site’s files.</p>
+      {mode === 'read'
+        ? <div className="prose story-read" dangerouslySetInnerHTML={{ __html: readableHtml(c) }} />
+        : <textarea className="textarea mono" rows={24} value={c} onChange={e => set(e.target.value)} aria-label={kind === 'review' ? 'Self-review' : 'Story file'} autoFocus />}
+    </section>
   );
 }
 
@@ -179,7 +231,17 @@ export default function CareerDraft() {
     nav('/career#drafts');
   }
 
-  const exportable = d.kind === 'story' || d.kind === 'resume';
+  const pasted = d.kind === 'resume' && c.source === 'pasted';
+  const exportable = d.kind === 'story' || (d.kind === 'resume' && !pasted);
+  // Kept resume lines, grouped under their role, ready to paste.
+  const keptLines = pasted ? [
+    ...(c.summary && c.summary_accepted ? ['Summary', c.summary, ''] : []),
+    ...[...new Set((c.changes || []).filter(x => x.accepted).map(x => x.role_label))].flatMap(role => [
+      role || 'Experience',
+      ...(c.changes || []).filter(x => x.accepted && x.role_label === role).map(x => `• ${x.text}${x.action === 'replace' ? `   (replaces: ${x.current})` : ''}`),
+      ''
+    ])
+  ].join('\n').trim() : '';
   const connected = !!gh?.ready;
 
   return (
@@ -205,26 +267,22 @@ export default function CareerDraft() {
         <div className="banner info"><Icon name="check" size={18} /><span className="grow">Pull request opened. <a href={safeHref(d.pr_url)} target="_blank" rel="noreferrer">Review it on GitHub</a>. Nothing changes on your site until you merge it.</span></div>
       )}
 
-      {d.kind === 'story' && (
-        <section className="card copy-block">
-          <p className="small muted" style={{ marginTop: 0 }}>The story file for your portfolio, in Markdown. Edit freely. Lines starting with TODO: are questions for you; fill them in or delete them before you publish.</p>
-          <div className="row mb" style={{ flexWrap: 'wrap', gap: 8 }}>
-            <CopyButton text={c} />
-            <button className={`btn small${connected ? '' : ' primary'}`} onClick={download}><Icon name="note" size={16} /> Download .md</button>
-            {safeHref(links.portfolio) && <a className="btn small ghost" href={safeHref(links.portfolio)} target="_blank" rel="noreferrer">Open your portfolio</a>}
-          </div>
-          <textarea className="textarea mono" rows={24} value={c} onChange={e => set(e.target.value)} aria-label="Story file" />
-        </section>
-      )}
+      {(d.kind === 'story' || d.kind === 'review') && <TextDraft kind={d.kind} c={c} set={set} connected={connected} links={links} onDownload={download} />}
 
       {d.kind === 'resume' && (
         <section className="card">
+          {pasted && (c.changes?.length > 0 || c.summary) && (
+            <div className="row mb" style={{ flexWrap: 'wrap', gap: 8 }}>
+              <p className="small muted grow" style={{ margin: 0 }}>For the resume you pasted. Untick the ones you don’t want, edit the rest, then copy them into your resume.</p>
+              <CopyButton text={keptLines} label="Copy kept lines" />
+            </div>
+          )}
           {!c.changes?.length && !c.summary && <p className="muted">No changes suggested.</p>}
           {c.summary && (
             <div className="todo-row">
               <input type="checkbox" checked={!!c.summary_accepted} onChange={e => set({ ...c, summary_accepted: e.target.checked })} aria-label="Use the new summary" />
               <div className="grow">
-                <div className="small muted" style={{ fontWeight: 600 }}>New summary</div>
+                <div className="row"><span className="small muted grow" style={{ fontWeight: 600 }}>New summary</span>{pasted && <CopyButton text={c.summary} />}</div>
                 <textarea className="textarea mt" value={c.summary} onChange={e => set({ ...c, summary: e.target.value })} />
               </div>
             </div>
@@ -235,11 +293,11 @@ export default function CareerDraft() {
               <div key={i} className="todo-row">
                 <input type="checkbox" checked={!!x.accepted} onChange={e => upd({ accepted: e.target.checked })} aria-label={`Keep: ${x.text}`} />
                 <div className="grow">
-                  <div className="small muted" style={{ fontWeight: 600 }}>{x.action === 'replace' ? 'Replace a line' : 'Add a line'} · {x.role_label}</div>
+                  <div className="row"><span className="small muted grow" style={{ fontWeight: 600 }}>{x.action === 'replace' ? 'Replace a line' : 'Add a line'} · {x.role_label}</span>{pasted && <CopyButton text={x.text} />}</div>
                   {x.action === 'replace' && <p className="small muted" style={{ margin: '4px 0' }}><s>{x.current}</s></p>}
                   <textarea className="textarea mt" value={x.text} onChange={e => upd({ text: e.target.value })} />
                   <div className="row mt" style={{ flexWrap: 'wrap' }}>
-                    {c.format !== 'jsonresume' && <label className="row small" style={{ gap: 6 }}>Show on
+                    {!pasted && c.format !== 'jsonresume' && <label className="row small" style={{ gap: 6 }}>Show on
                       <select className="select" value={x.visibility} onChange={e => upd({ visibility: e.target.value })} style={{ width: 'auto', minHeight: 34 }}>
                         <option value="resume">Resume only</option>
                         <option value="public">Resume and public site</option>

@@ -1,8 +1,11 @@
 import express from 'express';
-import { db } from '../db.js';
+import multer from 'multer';
+import path from 'node:path';
+import { db, safeJson } from '../db.js';
+import { extractText, DocError } from '../documents.js';
 import {
   combineEvidence, CareerError, listEvidence, extractEvidence, updateEvidence, addEvidence, githubStatus, careerLinks, jobStatus,
-  createDraft, updateDraft, exportDraft, draftOut
+  createDraft, updateDraft, exportDraft, draftOut, lastResumeText
 } from '../career.js';
 import { CAREER_THEMES } from '../prompts.js';
 import { markGiven, pendingWins, recentKudos, KudosError } from '../kudos.js';
@@ -19,7 +22,7 @@ const handle = fn => async (req, res, next) => {
 
 career.get('/career', (req, res) => {
   const counts = Object.fromEntries(db.prepare('SELECT status, COUNT(*) AS n FROM evidence GROUP BY status').all().map(r => [r.status, r.n]));
-  res.json({ github: githubStatus(), links: careerLinks(), job_status: jobStatus(), counts, themes: CAREER_THEMES });
+  res.json({ github: githubStatus(), links: careerLinks(), job_status: jobStatus(), counts, themes: CAREER_THEMES, has_resume: !!lastResumeText() });
 });
 
 // ---------- evidence ----------
@@ -43,6 +46,39 @@ career.delete('/career/evidence/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------- your current resume, as text (Word, PDF, text or JSON Resume) ----------
+const resumeUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
+/** A JSON Resume file as plain resume text. */
+function jsonResumeText(j) {
+  const lines = [];
+  if (j.basics?.name) lines.push(j.basics.name);
+  if (j.basics?.label) lines.push(j.basics.label);
+  if (j.basics?.summary) lines.push('', 'Summary', j.basics.summary);
+  if (Array.isArray(j.work) && j.work.length) {
+    lines.push('', 'Experience');
+    for (const w of j.work) {
+      lines.push('', `${w.position || ''}, ${w.name || w.company || ''} (${w.startDate || '?'} to ${w.endDate || 'now'})`);
+      if (w.summary) lines.push(w.summary);
+      for (const h of Array.isArray(w.highlights) ? w.highlights : []) lines.push(`- ${typeof h === 'string' ? h : h?.text || ''}`);
+    }
+  }
+  return lines.join('\n').trim();
+}
+career.post('/career/resume-file', resumeUpload.single('file'), handle(async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Choose a file.' });
+  const name = req.file.originalname || 'resume';
+  let text;
+  if (path.extname(name).toLowerCase() === '.json') {
+    const j = safeJson(req.file.buffer.toString('utf8'), null);
+    if (!j || !Array.isArray(j.work)) return res.status(400).json({ error: 'That JSON file isn’t a JSON Resume (it needs a "work" list).' });
+    text = jsonResumeText(j);
+  } else {
+    try { text = await extractText(req.file.buffer, name); }
+    catch (e) { return res.status(400).json({ error: e instanceof DocError ? e.message : 'Couldn’t read that file.' }); }
+  }
+  res.json({ text: String(text || '').slice(0, 30000) });
+}));
+
 // ---------- drafts ----------
 career.get('/career/drafts', (req, res) => {
   const rows = db.prepare('SELECT id, kind, title, status, pr_url, created_at, updated_at FROM career_drafts ORDER BY created_at DESC LIMIT 100').all();
@@ -54,11 +90,12 @@ career.get('/career/drafts/:id', (req, res) => {
   res.json(draftOut(r));
 });
 career.post('/career/drafts', handle(async (req, res) => {
-  const { kind, angle, evidence_ids: evidenceIds, current, person_id: personId, win } = req.body || {};
-  if (!['story', 'resume', 'linkedin', 'recognition'].includes(kind)) return res.status(400).json({ error: 'Pick a draft type.' });
+  const { kind, angle, evidence_ids: evidenceIds, current, person_id: personId, win, resume_text: resumeText, from, to } = req.body || {};
+  if (!['story', 'review', 'resume', 'linkedin', 'recognition'].includes(kind)) return res.status(400).json({ error: 'Pick a draft type.' });
   res.status(201).json(await createDraft({
     kind, angle: String(angle || ''), evidenceIds: Array.isArray(evidenceIds) ? evidenceIds.slice(0, 120) : [],
-    current: String(current || ''), personId: String(personId || ''), win: String(win || '')
+    current: String(current || ''), personId: String(personId || ''), win: String(win || ''), resumeText: String(resumeText || ''),
+    from: String(from || ''), to: String(to || '')
   }));
 }));
 career.patch('/career/drafts/:id', handle(async (req, res) => res.json(updateDraft(req.params.id, req.body))));

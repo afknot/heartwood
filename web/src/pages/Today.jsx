@@ -11,6 +11,7 @@ import { useApp } from '../lib/context.js';
 import { PracticeCard, WeekCard } from '../components/TodayExtras.jsx';
 import Sheet from '../components/Sheet.jsx';
 import { QuickAddSheet } from '../components/QuickAdd.jsx';
+import SetupCard from '../components/SetupCard.jsx';
 
 const eodTitle = () => `End of day · ${new Date().toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}`;
 const eodRecord = () => `/record?kind=memo&guide=day&title=${encodeURIComponent(eodTitle())}`;
@@ -163,6 +164,8 @@ export default function Today() {
           </div>
         </div>
       )}
+
+      <SetupCard />
 
       {(data.practice || data.moment) && <PracticeCard key={data.practice?.day || 'm'} practice={data.practice} moment={data.moment} top={data.top} notify={notify} onChange={load} />}
       {data.has_entries && <WeekCard rings={data.rings} coverage={data.coverage} onChanged={load} />}
